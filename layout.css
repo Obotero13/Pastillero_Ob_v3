@@ -1,0 +1,29 @@
+/* ============================================================
+   EL PASTILLERO Ob — Layout y Flujo de Cabecera / Navegación
+   Alineación natural mediante posición sticky
+   ============================================================ */
+
+.app-header {
+  position: sticky;
+  top: 0;
+}
+
+.alerts-bar {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 985;
+}
+
+.tab-nav {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 980;
+}
+
+.main-content {
+  padding-top: 1.5rem;
+}
+
+body.has-alerts .main-content {
+  padding-top: 1.5rem;
+}
