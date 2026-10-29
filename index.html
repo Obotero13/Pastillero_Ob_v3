@@ -66,10 +66,10 @@
       <span class="tab-icon">🏥</span><span class="tab-label">Puntos Entrega</span>
     </button>
     <button class="tab-btn" data-tab="dosis" id="tab-dosis" aria-selected="false">
-      <span class="tab-icon">⏱️</span><span class="tab-label">Dosis</span>
+      <span class="tab-icon">⏰</span><span class="tab-label">Dosis</span>
     </button>
     <button class="tab-btn" data-tab="calendario" id="tab-calendario" aria-selected="false">
-      <span class="tab-icon">📅</span><span class="tab-label">Calendario</span>
+      <span class="tab-icon">📆</span><span class="tab-label">Calendario</span>
     </button>
     <button class="tab-btn" data-tab="citas" id="tab-citas" aria-selected="false">
       <span class="tab-icon">✍</span><span class="tab-label">Citas Médicas</span>
@@ -108,11 +108,11 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="pac-telefono">Teléfono</label>
-            <input type="tel" class="form-input" id="pac-telefono" placeholder="+57 300 000 0000" />
+            <input type="tel" class="form-input" id="pac-telefono" placeholder="300 ... / (604) ..." />
           </div>
           <div class="form-group">
             <label class="form-label" for="pac-eps">EPS / Aseguradora</label>
-            <input type="text" class="form-input" id="pac-eps" placeholder="Ej: Sura, Sanitas, Compensar" />
+            <input type="text" class="form-input" id="pac-eps" placeholder="Ej: Sura, Nueva EPS, etc." />
           </div>
           <div class="form-group">
             <label class="form-label" for="pac-sangre">Grupo Sanguíneo</label>
@@ -138,7 +138,7 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="pac-emergencia-tel">Teléfono de Emergencia</label>
-            <input type="tel" class="form-input" id="pac-emergencia-tel" placeholder="+57 310 000 0000" />
+            <input type="tel" class="form-input" id="pac-emergencia-tel" placeholder="300 ... / (604) ..." />
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="pac-notas">Notas / Antecedentes</label>
@@ -254,15 +254,15 @@
         <div class="form-grid">
           <div class="form-group full-width">
             <label class="form-label" for="pun-nombre">Nombre de la farmacia o dispensario *</label>
-            <input type="text" class="form-input" id="pun-nombre" placeholder="Ej: Cafam Calle 53" required />
+            <input type="text" class="form-input" id="pun-nombre" placeholder="Ej: Colsubsidio" required />
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="pun-direccion">Dirección</label>
-            <input type="text" class="form-input" id="pun-direccion" placeholder="Ej: Cra. 13 # 52-20" />
+            <input type="text" class="form-input" id="pun-direccion" placeholder="Ej: Calle 44 # 79-118" />
           </div>
           <div class="form-group">
             <label class="form-label" for="pun-telefonos">Teléfonos</label>
-            <input type="text" class="form-input" id="pun-telefonos" placeholder="Ej: 601 307 7011" />
+            <input type="text" class="form-input" id="pun-telefonos" placeholder="Ej: (604) ... / 300 ..." />
           </div>
           <div class="form-group">
             <label class="form-label" for="pun-correo">Correo electrónico</label>
@@ -292,7 +292,7 @@
     <!-- TAB: DOSIS -->
     <section class="tab-panel" id="panel-dosis" role="tabpanel" aria-labelledby="tab-dosis">
       <div class="panel-header">
-        <h1 class="panel-title">⏱️ Horario de Dosis</h1>
+        <h1 class="panel-title">⏰ Horario de Dosis</h1>
         <div class="header-actions">
           <select class="form-select" id="sel-paciente-dosis" aria-label="Seleccionar paciente para dosis">
             <option value="">— Seleccionar paciente —</option>
@@ -348,7 +348,7 @@
       <!-- Schedule view -->
       <div id="dosis-schedule" class="dosis-schedule"></div>
       <div id="empty-dosis" class="empty-state">
-        <div class="empty-icon">⏱️</div>
+        <div class="empty-icon">⏰</div>
         <p>Selecciona un paciente para ver y programar sus dosis diarias.</p>
       </div>
     </section>
@@ -356,7 +356,7 @@
     <!-- TAB: CALENDARIO -->
     <section class="tab-panel" id="panel-calendario" role="tabpanel" aria-labelledby="tab-calendario">
       <div class="panel-header">
-        <h1 class="panel-title">📅 Calendario</h1>
+        <h1 class="panel-title">📆 Calendario</h1>
         <select class="form-select" id="sel-paciente-cal" aria-label="Seleccionar paciente para calendario">
           <option value="">— Todos los pacientes —</option>
         </select>
@@ -419,7 +419,7 @@
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="cita-lugar">Lugar / Centro Médico *</label>
-            <input type="text" class="form-input" id="cita-lugar" placeholder="Ej: Clínica Santa Fe, Consultorio 402" required />
+            <input type="text" class="form-input" id="cita-lugar" placeholder="Ej: Clínica, Consultorio, Local" required />
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-fecha">Fecha *</label>
@@ -431,19 +431,19 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-servicio">Servicio / Especialidad</label>
-            <input type="text" class="form-input" id="cita-servicio" placeholder="Ej: Cardiología, Medicina General" />
+            <input type="text" class="form-input" id="cita-servicio" placeholder="Ej: Medicina General, Especialidad" />
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-profesional">Profesional / Médico</label>
-            <input type="text" class="form-input" id="cita-profesional" placeholder="Ej: Dr. Roberto Gómez" />
+            <input type="text" class="form-input" id="cita-profesional" placeholder="Ej: Dr. xyz " />
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="cita-direccion">Dirección</label>
-            <input type="text" class="form-input" id="cita-direccion" placeholder="Ej: Calle 116 # 9-02" />
+            <input type="text" class="form-input" id="cita-direccion" placeholder="Ej: Calle xx # xx-xx" />
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-telefonos">Teléfonos</label>
-            <input type="text" class="form-input" id="cita-telefonos" placeholder="Ej: 601 215 2000" />
+            <input type="text" class="form-input" id="cita-telefonos" placeholder="Ej: (604) ... / 300 ..." />
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-correo">Correo electrónico</label>

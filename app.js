@@ -140,7 +140,7 @@ function checkDailyInventoryDeduction() {
 
 // ─── TOAST ───────────────────────────────────────────────────
 function showToast(msg, type = 'success', duration = 3500) {
-  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: '🎨' };
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
@@ -212,7 +212,7 @@ function renderAlertas() {
       alertas.push({
         tipo: 'recepcion',
         prioridad: 2,
-        msg: `📅 <strong>RECEPCIÓN:</strong> ${esc(nomPac)} — <strong>${esc(med.nombre)} ${med.concentracion}${med.unidad}</strong> en <strong>${dias === 0 ? 'HOY' : dias === 1 ? '1 día' : dias + ' días'}</strong> (${fmtDate(med.proximaRecepcion)}).`
+        msg: `📆 <strong>RECEPCIÓN:</strong> ${esc(nomPac)} — <strong>${esc(med.nombre)} ${med.concentracion}${med.unidad}</strong> en <strong>${dias === 0 ? 'HOY' : dias === 1 ? '1 día' : dias + ' días'}</strong> (${fmtDate(med.proximaRecepcion)}).`
       });
     }
   });
@@ -392,7 +392,7 @@ function renderPacientes() {
 
       <div class="patient-stats" style="margin-top:0.75rem;">
         <span class="stat-pill">💊 ${numMeds} med${numMeds !== 1 ? 's' : ''}</span>
-        <span class="stat-pill">⏱️ ${numDosis} dosis</span>
+        <span class="stat-pill">⏰ ${numDosis} dosis</span>
         <span class="stat-pill">✍ ${numCitas} cita${numCitas !== 1 ? 's' : ''}</span>
       </div>
     `;
@@ -534,7 +534,7 @@ function exportarResumenPDF(pacienteId) {
       </div>
 
       <div class="pdf-section">
-        <h2 class="pdf-section-title">⏱️ Horario y Plan de Dosificación</h2>
+        <h2 class="pdf-section-title">⏰ Horario y Plan de Dosificación</h2>
         ${dosis.length === 0 ? '<p style="font-size:9.5px;color:#666;">No hay horarios programados.</p>' : `
           <table class="pdf-table">
             <thead>
@@ -618,7 +618,7 @@ function exportarResumenPDF(pacienteId) {
       </div>
 
       <div class="pdf-footer">
-        Oscar Botero - Ficha generada por <strong>El Pastillero Ob</strong> — Control y adherencia médica.
+        Oscar Botero - Ficha generada por <strong>El Pastillero Ob</strong> — Resumen de Control Médico.
       </div>
     </div>
   `;
@@ -675,14 +675,14 @@ function renderMedicamentos() {
         <div class="med-name">
           💊 ${esc(med.nombre)}
           <span class="med-badge">${med.concentracion} ${med.unidad}</span>
-          ${near ? '<span style="color:#ff9800;font-size:0.8rem;">🔜 Recepción próxima</span>' : ''}
+          ${near ? '<span style="color:#ff9800;font-size:0.8rem;">⏩ Recepción próxima</span>' : ''}
           ${bajoStock ? `<span style="color:#ff5252;font-size:0.8rem;font-weight:700;">⚠️ Stock bajo (${med.cantidad})</span>` : ''}
         </div>
         <div class="med-details">
           <span class="med-detail-item">📦 Stock actual: <strong>${med.cantidad}</strong> (mín: ${stockMin})</span>
           ${med.laboratorio ? `<span class="med-detail-item">🏭 ${esc(med.laboratorio)}</span>` : ''}
-          <span class="med-detail-item">📅 Recepción: <strong>${fmtDate(med.fechaRecepcion)}</strong></span>
-          <span class="med-detail-item">🔜 Próxima: <strong>${fmtDate(med.proximaRecepcion)}</strong>${near ? ` <span style="color:#ff9800">(${dias === 0 ? 'HOY' : dias + 'd'})</span>` : ''}</span>
+          <span class="med-detail-item">📆 Recepción: <strong>${fmtDate(med.fechaRecepcion)}</strong></span>
+          <span class="med-detail-item">⏩ Próxima: <strong>${fmtDate(med.proximaRecepcion)}</strong>${near ? ` <span style="color:#ff9800">(${dias === 0 ? 'HOY' : dias + 'd'})</span>` : ''}</span>
           ${puntoNombre(med.puntoEntregaId) ? `<span class="med-detail-item">🏥 ${esc(puntoNombre(med.puntoEntregaId))}</span>` : ''}
           ${med.notas ? `<span class="med-detail-item">📝 ${esc(med.notas.slice(0,50))}${med.notas.length>50?'...':''}</span>` : ''}
         </div>
@@ -1111,13 +1111,13 @@ function openCalendarDay(dateStr, day) {
     const modal = document.getElementById('modal-dia-cal');
     const title = document.getElementById('modal-dia-title');
     const content = document.getElementById('modal-dia-content');
-    title.textContent = `📅 ${day} de ${MESES[APP.ui.calMonth]} de ${APP.ui.calYear}`;
+    title.textContent = `📆 ${day} de ${MESES[APP.ui.calMonth]} de ${APP.ui.calYear}`;
     content.innerHTML = `
       <div style="margin-bottom:1rem;">
         ${medsEnFecha.length ? '<p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.5rem;font-weight:600;">💊 Medicamentos programados:</p>' : ''}
         ${medsEnFecha.map(m => {
           const pac = APP.data.pacientes.find(p => p.id === m.pacienteId);
-          const tipo = m.proximaRecepcion === dateStr ? '🔜 Próxima recepción' : '📅 Recepción';
+          const tipo = m.proximaRecepcion === dateStr ? '⏩ Próxima recepción' : '📆 Recepción';
           return `<div style="padding:0.4rem 0.6rem;background:var(--accent-muted);border-radius:6px;margin-bottom:0.3rem;font-size:0.83rem;">
             <strong>${esc(m.nombre)} ${m.concentracion}${m.unidad}</strong>${pac ? ` — ${esc(pac.nombre)}` : ''}<br>
             <span style="color:var(--accent)">${tipo}</span>
@@ -1447,7 +1447,7 @@ function renderPuntos() {
       <div class="med-info">
         <div class="med-name">🏥 ${esc(p.nombre || 'Punto sin nombre')}</div>
         <div class="med-details">
-          ${detail('📍', p.direccion)}${detail('📞', p.telefonos)}${detail('✉️', p.correo)}${detail('🌐', p.web, webLink(p.web))}${detail('📝', p.observaciones)}
+          ${detail('📍', p.direccion)}${detail('📞', p.telefonos)}${detail('📧', p.correo)}${detail('🌐', p.web, webLink(p.web))}${detail('📝', p.observaciones)}
         </div>
       </div>
       <div class="med-actions">
@@ -1502,7 +1502,7 @@ async function eliminarPunto(id) {
 
 function citaResumenHTML(ct) {
   const pac = APP.data.pacientes.find(p => p.id === ct.pacienteId);
-  return `<div style="padding:0.4rem 0.6rem;background:rgba(33,150,243,0.12);border-left:3px solid #2196f3;border-radius:6px;margin-bottom:0.3rem;font-size:0.83rem;">
+  return `<div style="padding:0.4rem 0.6rem;background:rgba(33,150,243,0.12);border-left:3px solid #ff9800f3;border-radius:6px;margin-bottom:0.3rem;font-size:0.83rem;">
     <strong>${ct.hora ? esc(ct.hora) + ' — ' : ''}${esc(ct.servicio || 'Cita médica')}</strong>${pac ? ` — ${esc(pac.nombre)}` : ''}<br>
     ${ct.profesional ? `👨‍⚕️ ${esc(ct.profesional)}<br>` : ''}${ct.lugar ? `🏥 ${esc(ct.lugar)}` : ''}${ct.direccion ? ` · 📍 ${esc(ct.direccion)}` : ''}
   </div>`;

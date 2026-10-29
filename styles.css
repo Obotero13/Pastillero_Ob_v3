@@ -595,22 +595,24 @@ body.mode-light option {
   background: rgba(var(--accent-rgb), 0.2); border-color: var(--accent); color: var(--accent); font-weight: 800;
 }
 .cal-day.has-reception { background: rgba(var(--accent-rgb), 0.12); }
-.cal-day.has-special { background: rgba(255,152,0,0.12); }
-.cal-day.has-cita { box-shadow: inset 0 -3px 0 #2196f3; }
+.cal-day.has-special { background: rgba(128,128,128,0.3); }
+.cal-day.has-special { box-shadow: inset 0 -3px 0 		#a9a9a9f3; }
+.cal-day.has-cita { background: rgba(255,152,0,0.2); }
+.cal-day.has-cita { box-shadow: inset 0 -3px 0 		#ff9800f3; }
 .cal-day.other-month { color: var(--text-muted); opacity: 0.4; }
 .cal-dots { display: flex; gap: 2px; position: absolute; bottom: 3px; }
 .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
 .cal-dot.reception { background: var(--accent); }
-.cal-dot.special { background: #ff9800; }
-.cal-dot.cita { background: #2196f3; }
+.cal-dot.special { background: #a9a9a9f3; }
+.cal-dot.cita { background: #ff9800f3; }
 .calendar-legend {
   display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; justify-content: center;
 }
 .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-secondary); }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 .legend-dot.reception { background: var(--accent); }
-.legend-dot.special { background: #ff9800; }
-.legend-dot.cita { background: #2196f3; }
+.legend-dot.special { background: #a9a9a9f3}
+.legend-dot.cita { background: #ff9800f3; }
 .legend-dot.today { background: var(--accent); border: 2px solid var(--text-primary); }
 
 /* ─── TABLA DE CONSULTA ─── */
