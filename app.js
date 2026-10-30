@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v3.0)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v3.1)
    ============================================================ */
 
 'use strict';
@@ -51,7 +51,14 @@ const fmtDate = (dateStr) => {
   return `${d}/${m}/${y}`;
 };
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+// Obtiene la fecha local en formato YYYY-MM-DD
+const todayStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const daysDiff = (dateStr) => {
   if (!dateStr) return Infinity;
@@ -101,7 +108,7 @@ function loadSettings() {
   } catch(e) {}
 }
 
-// ─── CONTROL AUTOMÁTICO DE INVENTARIO ────────────────────────
+// ─── CONTROL AUTOMÁTICO DE INVENTARIO (BIDIRECCIONAL Y RESISTENTE A MÓVILES) ──
 function checkDailyInventoryDeduction() {
   const hoy = todayStr();
   const ultimaFecha = APP.data.lastInventoryDate;
@@ -118,23 +125,36 @@ function checkDailyInventoryDeduction() {
   const fechaHoy = new Date(hoy + 'T00:00:00');
   const diasTranscurridos = Math.round((fechaHoy - fechaAnt) / (1000 * 60 * 60 * 24));
 
-  if (diasTranscurridos > 0) {
-    let descuentos = 0;
-    APP.data.dosis.forEach(dos => {
-      const med = APP.data.medicamentos.find(m => m.id === dos.medicamentoId);
-      if (med && med.cantidad > 0) {
-        const totalDesc = (dos.cantidadDia || 0) * diasTranscurridos;
-        med.cantidad = Math.max(0, Math.round((med.cantidad - totalDesc) * 10) / 10);
-        descuentos++;
-      }
-    });
+  if (diasTranscurridos === 0) return;
 
-    APP.data.lastInventoryDate = hoy;
-    saveData();
+  let modificaciones = 0;
 
-    if (descuentos > 0) {
-      showToast(`📦 Inventario actualizado: se descontaron dosis de ${diasTranscurridos} día(s).`, 'info', 4500);
+  // Si diasTranscurridos > 0: se adelantó el tiempo o pasó la noche -> se descuentan dosis
+  // Si diasTranscurridos < 0: se atrasó el tiempo del reloj -> se reintegran dosis
+  APP.data.dosis.forEach(dos => {
+    const med = APP.data.medicamentos.find(m => m.id === dos.medicamentoId);
+    if (med && typeof dos.cantidadDia === 'number' && dos.cantidadDia > 0) {
+      const deltaTotal = dos.cantidadDia * diasTranscurridos;
+      let nuevoStock = med.cantidad - deltaTotal;
+      if (nuevoStock < 0) nuevoStock = 0;
+      med.cantidad = Math.round(nuevoStock * 100) / 100;
+      modificaciones++;
     }
+  });
+
+  APP.data.lastInventoryDate = hoy;
+  saveData();
+
+  if (modificaciones > 0) {
+    if (diasTranscurridos > 0) {
+      showToast(`📦 Inventario actualizado: se descontaron dosis de ${diasTranscurridos} día(s).`, 'info', 4500);
+    } else {
+      showToast(`⏪ Reloj atrasado: se reintegraron dosis de ${Math.abs(diasTranscurridos)} día(s).`, 'warning', 4500);
+    }
+
+    if (APP.ui.tabActual === 'medicamentos') renderMedicamentos();
+    if (APP.ui.tabActual === 'consulta') renderConsulta();
+    renderAlertas();
   }
 }
 
@@ -623,7 +643,6 @@ function exportarResumenPDF(pacienteId) {
     </div>
   `;
 
-  // Se imprime de inmediato; @media print se encarga de mostrar exclusivamente el PDF
   window.print();
 }
 
@@ -1280,7 +1299,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '3.0',
+    version: '3.1',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1363,6 +1382,13 @@ function exportarExcel(rows) {
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
+  for (let i = 2; i <= data.length + 1; i++) {
+    const celda = ws[`I${i}`];
+    if (celda && typeof celda.v === 'number') {
+        celda.z = '0.00';
+    }
+  }
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Medicamentos');
   ws['!cols'] = [20,22,14,12,18,18,14,16,10,18,30].map(w => ({ wch: w }));
@@ -1379,12 +1405,10 @@ let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.0').then(reg => {
-      // Fuerza a verificar si subiste cambios a GitHub Pages
+    navigator.serviceWorker.register('sw.js?v=3.1').then(reg => {
       reg.update();
     }).catch(() => {});
 
-    // Recarga la aplicación automáticamente cuando el nuevo Service Worker tome el control
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       window.location.reload();
     });
@@ -1772,6 +1796,18 @@ function initEventListeners() {
       document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
     }
   });
+
+  // REACTIVACIÓN Y CAMBIOS DE FECHA EN MÓVILES (ONLINE / OFFLINE)
+  const revalidarApp = () => {
+    checkDailyInventoryDeduction();
+    renderAlertas();
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') revalidarApp();
+  });
+  window.addEventListener('focus', revalidarApp);
+  window.addEventListener('pageshow', revalidarApp);
 }
 
 // ─── ARRANQUE DE LA APLICACIÓN ───────────────────────────────
@@ -1787,7 +1823,11 @@ function init() {
   renderAlertas();
   initPWA();
 
-  setInterval(renderAlertas, 10 * 60 * 1000);
+  // Verifica cambios de hora / paso de medianoche cada 60 segundos aunque no haya internet
+  setInterval(() => {
+    checkDailyInventoryDeduction();
+    renderAlertas();
+  }, 60 * 1000);
 
   if (APP.data.pacientes.length === 0) {
     setTimeout(() => {
@@ -1797,4 +1837,3 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
-

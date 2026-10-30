@@ -1,15 +1,15 @@
 // ============================================================
-// EL PASTILLERO Ob — Service Worker (sw.js v3.0)
+// EL PASTILLERO Ob — Service Worker (sw.js v3.1)
 // Estrategia Network-First: Actualizaciones inmediatas
 // ============================================================
 
-const CACHE_NAME = 'pastillero-v3.0';
+const CACHE_NAME = 'pastillero-v3.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './styles.css?v=3.0',
-  './layout.css?v=3.0',
-  './app.js?v=3.0',
+  './styles.css?v=3.1',
+  './layout.css?v=3.1',
+  './app.js?v=3.1',
   './manifest.json'
 ];
 
@@ -33,7 +33,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estrategia: Network-First (Consulta GitHub primero; si no hay internet, usa caché)
+// Estrategia: Network-First (Consulta red primero; si no hay internet, usa caché)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -68,3 +68,4 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
