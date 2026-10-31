@@ -9,8 +9,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3.1" />
-  <link rel="stylesheet" href="layout.css?v=3.1" />
+  <link rel="stylesheet" href="styles.css?v=3.2" />
+  <link rel="stylesheet" href="layout.css?v=3.2" />
+  <style>
+    /* Alerta para fechas especiales (gris a juego con el calendario) */
+    .alert-item.alert-especial {
+      background: rgba(158, 158, 158, 0.15);
+      border-left: 4px solid #9e9e9e;
+      color: var(--text-primary);
+    }
+    body.mode-light .alert-item.alert-especial {
+      background: #f0f0f0;
+      color: #333333;
+      border-left: 4px solid #757575;
+    }
+  </style>
 </head>
 <body class="theme-green mode-dark">
 
@@ -51,7 +64,7 @@
     </div>
   </header>
 
-  <!-- BARRA DE ALERTAS (CITAS, RECEPCIONES, INVENTARIO) -->
+  <!-- BARRA DE ALERTAS (CITAS, RECEPCIONES, INVENTARIO, FECHAS ESPECIALES) -->
   <div class="alerts-bar" id="alerts-bar" role="alert" aria-live="polite"></div>
 
   <!-- NAVEGACIÓN DE PESTAÑAS -->
@@ -311,10 +324,24 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="dosis-cantidad-dia">Dosis diaria (tabletas/unidades al día) *</label>
-            <input type="number" class="form-input" id="dosis-cantidad-dia" placeholder="Ej: 2" min="0.25" step="0.25" required />
+            <label class="form-label" for="dosis-cantidad-dia">Cantidad por toma/día *</label>
+            <input type="number" class="form-input" id="dosis-cantidad-dia" placeholder="Ej: 1" min="0.1" step="0.05" required />
           </div>
           <div class="form-group">
+            <label class="form-label" for="dosis-frecuencia">Frecuencia / Rango *</label>
+            <select class="form-select" id="dosis-frecuencia">
+              <option value="diaria">Todos los días (Diario)</option>
+              <option value="cada_dias">Cada X días (Personalizado)</option>
+              <option value="semanal">Semanal (Cada 7 días)</option>
+              <option value="quincenal">Quincenal (Cada 15 días)</option>
+              <option value="mensual">Mensual (Cada 30 días)</option>
+            </select>
+          </div>
+          <div class="form-group" id="group-dosis-intervalo" style="display:none;">
+            <label class="form-label" for="dosis-intervalo-dias">Número de días del intervalo *</label>
+            <input type="number" class="form-input" id="dosis-intervalo-dias" placeholder="Ej: 2 (cada 2 días)" min="2" max="365" value="2" />
+          </div>
+          <div class="form-group full-width">
             <label class="form-label">Jornadas *</label>
             <div class="jornadas-check">
               <label class="check-label"><input type="checkbox" id="jornada-manana" value="mañana" /> 🌅 Mañana</label>
@@ -336,7 +363,7 @@
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="dosis-notas">Instrucciones especiales</label>
-            <textarea class="form-input form-textarea" id="dosis-notas" placeholder="Ej: Tomar con alimentos, 30 min antes de dormir, etc."></textarea>
+            <textarea class="form-input form-textarea" id="dosis-notas" placeholder="Ej: Tomar los lunes en ayunas, con abundante agua, etc."></textarea>
           </div>
         </div>
         <div class="form-actions">
@@ -349,7 +376,7 @@
       <div id="dosis-schedule" class="dosis-schedule"></div>
       <div id="empty-dosis" class="empty-state">
         <div class="empty-icon">⏰</div>
-        <p>Selecciona un paciente para ver y programar sus dosis diarias.</p>
+        <p>Selecciona un paciente para ver y programar sus dosis.</p>
       </div>
     </section>
 
@@ -501,7 +528,7 @@
               <th>Punto Entrega</th>
               <th>F. Recepción</th>
               <th>Próx. Recepción</th>
-              <th>Dosis/Día</th>
+              <th>Dosis / Frecuencia</th>
               <th>Jornadas</th>
               <th>Notas</th>
             </tr>
@@ -607,6 +634,7 @@
 
   <!-- Scripts externos (SheetJS para Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=3.1"></script>
+  <script src="app.js?v=3.2"></script>
 </body>
 </html>
+

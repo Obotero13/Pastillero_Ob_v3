@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v3.1)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v3.2)
    ============================================================ */
 
 'use strict';
@@ -9,7 +9,7 @@ const APP = {
   data: {
     pacientes: [],       // [{id, nombre, edad, telefono, eps, tipoSangre, alergias, emergenciaContacto, emergenciaTelefono, notas}]
     medicamentos: [],    // [{id, pacienteId, nombre, concentracion, unidad, cantidad, stockMinimo, laboratorio, fechaRecepcion, proximaRecepcion, puntoEntregaId, notas}]
-    dosis: [],           // [{id, pacienteId, medicamentoId, cantidadDia, jornadas:[{jornada, hora}], notas}]
+    dosis: [],           // [{id, pacienteId, medicamentoId, cantidadDia, frecuencia, intervaloDias, jornadas:[{jornada, hora}], notas}]
     puntosEntrega: [],   // [{id, nombre, direccion, telefonos, correo, web, observaciones}]
     citas: [],           // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones}]
     fechasEspeciales: [],// [{fecha:'YYYY-MM-DD', comentario}]
@@ -78,6 +78,32 @@ const detail = (icon, val, html) => val ? `<span class="med-detail-item">${icon}
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+// Cálculo del consumo diario promedio según la frecuencia configurada
+function getConsumoDiario(dosis) {
+  const cant = parseFloat(dosis.cantidadDia) || 0;
+  if (cant <= 0) return 0;
+  const frec = dosis.frecuencia || 'diaria';
+  if (frec === 'diaria') return cant;
+  if (frec === 'cada_dias') {
+    const inter = parseInt(dosis.intervaloDias, 10) || 1;
+    return cant / Math.max(1, inter);
+  }
+  if (frec === 'semanal') return cant / 7;
+  if (frec === 'quincenal') return cant / 15;
+  if (frec === 'mensual') return cant / 30;
+  return cant;
+}
+
+function getFrecuenciaTexto(dosis) {
+  const frec = dosis.frecuencia || 'diaria';
+  if (frec === 'diaria') return `${dosis.cantidadDia} al día`;
+  if (frec === 'cada_dias') return `${dosis.cantidadDia} cada ${dosis.intervaloDias || 2} días`;
+  if (frec === 'semanal') return `${dosis.cantidadDia} semanal`;
+  if (frec === 'quincenal') return `${dosis.cantidadDia} quincenal`;
+  if (frec === 'mensual') return `${dosis.cantidadDia} mensual`;
+  return `${dosis.cantidadDia} al día`;
+}
+
 // ─── PERSISTENCIA ────────────────────────────────────────────
 const STORAGE_KEY = 'elpastillero_v1';
 
@@ -129,12 +155,11 @@ function checkDailyInventoryDeduction() {
 
   let modificaciones = 0;
 
-  // Si diasTranscurridos > 0: se adelantó el tiempo o pasó la noche -> se descuentan dosis
-  // Si diasTranscurridos < 0: se atrasó el tiempo del reloj -> se reintegran dosis
   APP.data.dosis.forEach(dos => {
     const med = APP.data.medicamentos.find(m => m.id === dos.medicamentoId);
-    if (med && typeof dos.cantidadDia === 'number' && dos.cantidadDia > 0) {
-      const deltaTotal = dos.cantidadDia * diasTranscurridos;
+    const tasaDiaria = getConsumoDiario(dos);
+    if (med && tasaDiaria > 0) {
+      const deltaTotal = tasaDiaria * diasTranscurridos;
       let nuevoStock = med.cantidad - deltaTotal;
       if (nuevoStock < 0) nuevoStock = 0;
       med.cantidad = Math.round(nuevoStock * 100) / 100;
@@ -199,7 +224,7 @@ function confirmModal(title, msg) {
   });
 }
 
-// ─── ALERTAS COMBINADAS: CITAS, RECEPCIONES Y STOCK ──────────
+// ─── ALERTAS COMBINADAS: CITAS, RECEPCIONES, INVENTARIO Y FECHAS ESPECIALES ──
 function renderAlertas() {
   const bar = document.getElementById('alerts-bar');
   if (!bar) return;
@@ -237,7 +262,21 @@ function renderAlertas() {
     }
   });
 
-  // 3. Control de Inventario (Stock bajo o agotado)
+  // 3. Fechas Especiales / Notas de Calendario (HOY o MAÑANA) -> Alerta gris (#9e9e9e)
+  (APP.data.fechasEspeciales || []).forEach(fe => {
+    if (!fe.fecha) return;
+    const dias = daysDiff(fe.fecha);
+    if (dias >= 0 && dias <= 1) {
+      const labelTiempo = dias === 0 ? 'HOY' : 'MAÑANA';
+      alertas.push({
+        tipo: 'especial',
+        prioridad: 2.5,
+        msg: `⭐ <strong>RECORDATORIO (${labelTiempo} - ${fmtDate(fe.fecha)}):</strong> ${esc(fe.comentario)}`
+      });
+    }
+  });
+
+  // 4. Control de Inventario (Stock bajo o agotado)
   (APP.data.medicamentos || []).forEach(med => {
     const stockMin = med.stockMinimo !== undefined ? Number(med.stockMinimo) : 5;
     if (med.cantidad <= stockMin) {
@@ -560,7 +599,7 @@ function exportarResumenPDF(pacienteId) {
             <thead>
               <tr>
                 <th>Medicamento</th>
-                <th>Dosis/Día</th>
+                <th>Dosis / Frecuencia</th>
                 <th>Jornadas y Horas</th>
                 <th>Instrucciones</th>
               </tr>
@@ -572,7 +611,7 @@ function exportarResumenPDF(pacienteId) {
                 return `
                   <tr>
                     <td><strong>${esc(med ? med.nombre : 'Medicamento')}</strong> (${med ? med.concentracion + med.unidad : ''})</td>
-                    <td>${d.cantidadDia}</td>
+                    <td>${esc(getFrecuenciaTexto(d))}</td>
                     <td>${esc(jornadasStr)}</td>
                     <td>${esc(d.notas || '—')}</td>
                   </tr>
@@ -822,7 +861,7 @@ async function eliminarMed(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: DOSIS
+// MÓDULO: DOSIS CON FRECUENCIAS PERSONALIZADAS
 // ─────────────────────────────────────────────────────────────
 
 function updateDosisMedSelect() {
@@ -903,10 +942,10 @@ function renderDosis() {
       row.innerHTML = `
         <div>
           <div class="dosis-med-name">💊 ${esc(med.nombre)} <small style="color:var(--text-muted)">${med.concentracion}${med.unidad}</small></div>
+          <div style="font-size:0.78rem;color:var(--accent);margin-top:2px;">Frecuencia: <strong>${esc(getFrecuenciaTexto(dosis))}</strong></div>
           ${dosis.notas ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${esc(dosis.notas)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:0.75rem;">
-          <span class="dosis-amount">${dosis.cantidadDia} por día</span>
           <button class="btn btn-secondary btn-icon" data-action="edit-dosis" data-id="${dosis.id}" title="Editar">✏️</button>
           <button class="btn btn-danger btn-icon" data-action="del-dosis" data-id="${dosis.id}" title="Eliminar">🗑️</button>
         </div>
@@ -924,11 +963,16 @@ function openFormDosis(dosisId = null) {
   const card = document.getElementById('form-dosis-card');
   APP.ui.editDosisId = dosisId;
 
+  const selFrec = document.getElementById('dosis-frecuencia');
+  const groupInter = document.getElementById('group-dosis-intervalo');
+
   if (dosisId) {
     const d = APP.data.dosis.find(x => x.id === dosisId);
     if (!d) return;
     document.getElementById('dosis-medicamento').value = d.medicamentoId;
     document.getElementById('dosis-cantidad-dia').value = d.cantidadDia;
+    selFrec.value = d.frecuencia || 'diaria';
+    document.getElementById('dosis-intervalo-dias').value = d.intervaloDias || 2;
     document.getElementById('dosis-notas').value = d.notas || '';
 
     ['manana','tarde','noche'].forEach(j => {
@@ -943,15 +987,19 @@ function openFormDosis(dosisId = null) {
     });
   } else {
     document.getElementById('dosis-medicamento').value = '';
-    document.getElementById('dosis-cantidad-dia').value = '';
+    document.getElementById('dosis-cantidad-dia').value = '1';
+    selFrec.value = 'diaria';
+    document.getElementById('dosis-intervalo-dias').value = '2';
     document.getElementById('dosis-notas').value = '';
-    document.getElementById('jornada-manana').checked = false;
+    document.getElementById('jornada-manana').checked = true;
     document.getElementById('jornada-tarde').checked = false;
     document.getElementById('jornada-noche').checked = false;
     document.getElementById('dosis-hora-manana').value = '07:00';
     document.getElementById('dosis-hora-tarde').value = '13:00';
     document.getElementById('dosis-hora-noche').value = '20:00';
   }
+
+  groupInter.style.display = selFrec.value === 'cada_dias' ? 'block' : 'none';
 
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -965,9 +1013,11 @@ function closeFormDosis() {
 function guardarDosis() {
   const medId = document.getElementById('dosis-medicamento').value;
   const cantDia = parseFloat(document.getElementById('dosis-cantidad-dia').value);
+  const frecuencia = document.getElementById('dosis-frecuencia').value;
+  const intervaloDias = parseInt(document.getElementById('dosis-intervalo-dias').value, 10) || 2;
 
   if (!medId) { showToast('Selecciona un medicamento.', 'error'); return; }
-  if (isNaN(cantDia) || cantDia <= 0) { showToast('La dosis diaria debe ser mayor a 0.', 'error'); return; }
+  if (isNaN(cantDia) || cantDia <= 0) { showToast('La cantidad debe ser mayor a 0.', 'error'); return; }
 
   const jornadas = [];
   if (document.getElementById('jornada-manana').checked) {
@@ -986,6 +1036,8 @@ function guardarDosis() {
     pacienteId: APP.ui.selPacienteDosis,
     medicamentoId: medId,
     cantidadDia: cantDia,
+    frecuencia,
+    intervaloDias: frecuencia === 'cada_dias' ? intervaloDias : null,
     jornadas,
     notas: document.getElementById('dosis-notas').value.trim()
   };
@@ -1192,6 +1244,7 @@ function guardarFechaEspecial() {
   saveData();
   document.getElementById('modal-fecha-especial').style.display = 'none';
   renderCalendar();
+  renderAlertas();
   showToast('Fecha especial guardada.', 'success');
 }
 
@@ -1201,6 +1254,7 @@ function eliminarFechaEspecial() {
   saveData();
   document.getElementById('modal-fecha-especial').style.display = 'none';
   renderCalendar();
+  renderAlertas();
   showToast('Fecha especial eliminada.', 'warning');
 }
 
@@ -1245,7 +1299,7 @@ function getConsultaRows() {
       puntoEntrega: puntoNombre(med.puntoEntregaId) || '—',
       fechaRecepcion: fmtDate(med.fechaRecepcion),
       proximaRecepcion: fmtDate(med.proximaRecepcion),
-      dosisDia: dosis ? dosis.cantidadDia : '—',
+      dosisDia: dosis ? getFrecuenciaTexto(dosis) : '—',
       jornadas: jornadas || '—',
       notas: med.notas || '—',
       diasRestantes: daysDiff(med.proximaRecepcion),
@@ -1285,7 +1339,7 @@ function renderConsulta() {
       <td>${esc(row.puntoEntrega)}</td>
       <td>${row.fechaRecepcion}</td>
       <td style="${row.diasRestantes >= 0 && row.diasRestantes <= 7 ? 'color:#ff9800;font-weight:700;' : ''}">${row.proximaRecepcion}${row.diasRestantes >= 0 && row.diasRestantes <= 7 ? ` <small>(${row.diasRestantes === 0 ? 'HOY' : row.diasRestantes + 'd'})</small>` : ''}</td>
-      <td>${row.dosisDia}</td>
+      <td>${esc(row.dosisDia)}</td>
       <td>${esc(row.jornadas)}</td>
       <td style="max-width:150px;font-size:0.8rem;">${esc(row.notas)}</td>
     `;
@@ -1299,7 +1353,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '3.1',
+    version: '3.2',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1376,22 +1430,15 @@ function exportarExcel(rows) {
     'Punto de Entrega': r.puntoEntrega,
     'F. Recepción': r.fechaRecepcion,
     'Próx. Recepción': r.proximaRecepcion,
-    'Dosis/Día': r.dosisDia,
+    'Dosis / Frecuencia': r.dosisDia,
     'Jornadas': r.jornadas,
     'Notas': r.notas
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
-  for (let i = 2; i <= data.length + 1; i++) {
-    const celda = ws[`I${i}`];
-    if (celda && typeof celda.v === 'number') {
-        celda.z = '0.00';
-    }
-  }
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Medicamentos');
-  ws['!cols'] = [20,22,14,12,18,18,14,16,10,18,30].map(w => ({ wch: w }));
+  ws['!cols'] = [20,22,14,12,18,18,14,16,22,18,30].map(w => ({ wch: w }));
 
   XLSX.writeFile(wb, `pastillero_${todayStr()}.xlsx`);
   showToast('Archivo Excel exportado correctamente.', 'success');
@@ -1405,7 +1452,7 @@ let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.1').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=3.2').then(reg => {
       reg.update();
     }).catch(() => {});
 
@@ -1671,12 +1718,18 @@ function initEventListeners() {
     if (action === 'del-med') eliminarMed(id);
   });
 
-  // DOSIS
+  // DOSIS Y FRECUENCIA
   document.getElementById('sel-paciente-dosis').addEventListener('change', (e) => {
     APP.ui.selPacienteDosis = e.target.value;
     updateDosisMedSelect();
     renderDosis();
   });
+
+  document.getElementById('dosis-frecuencia').addEventListener('change', (e) => {
+    const group = document.getElementById('group-dosis-intervalo');
+    group.style.display = e.target.value === 'cada_dias' ? 'block' : 'none';
+  });
+
   document.getElementById('btn-cancelar-dosis').addEventListener('click', closeFormDosis);
   document.getElementById('btn-guardar-dosis').addEventListener('click', guardarDosis);
 
@@ -1823,7 +1876,7 @@ function init() {
   renderAlertas();
   initPWA();
 
-  // Verifica cambios de hora / paso de medianoche cada 60 segundos aunque no haya internet
+  // Verifica cambios de fecha / paso de medianoche cada minuto
   setInterval(() => {
     checkDailyInventoryDeduction();
     renderAlertas();
