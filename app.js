@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v3.2)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v3.3.1)
    ============================================================ */
 
 'use strict';
@@ -13,6 +13,7 @@ const APP = {
     puntosEntrega: [],   // [{id, nombre, direccion, telefonos, correo, web, observaciones}]
     citas: [],           // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones}]
     fechasEspeciales: [],// [{fecha:'YYYY-MM-DD', comentario}]
+    registroTomas: {},   // {'YYYY-MM-DD': { 'dosisId_jornada': true }}
     lastInventoryDate: null // 'YYYY-MM-DD'
   },
   ui: {
@@ -22,6 +23,7 @@ const APP = {
     editDosisId: null,
     editPuntoId: null,
     editCitaId: null,
+    reabastecerMedId: null,
     calYear: new Date().getFullYear(),
     calMonth: new Date().getMonth(),
     calSelectedDate: null,
@@ -29,7 +31,9 @@ const APP = {
     selPacienteDosis: '',
     selPacienteCal: '',
     selPacienteConsulta: '',
-    selMedConsulta: ''
+    selMedConsulta: '',
+    selFechaRecepcionConsulta: '',
+    selPuntoConsulta: ''
   },
   settings: {
     theme: 'green',
@@ -51,7 +55,6 @@ const fmtDate = (dateStr) => {
   return `${d}/${m}/${y}`;
 };
 
-// Obtiene la fecha local en formato YYYY-MM-DD
 const todayStr = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -78,7 +81,6 @@ const detail = (icon, val, html) => val ? `<span class="med-detail-item">${icon}
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-// Cálculo del consumo diario promedio según la frecuencia configurada
 function getConsumoDiario(dosis) {
   const cant = parseFloat(dosis.cantidadDia) || 0;
   if (cant <= 0) return 0;
@@ -119,6 +121,7 @@ function loadData() {
     if (raw) {
       const parsed = JSON.parse(raw);
       APP.data = { ...APP.data, ...parsed };
+      if (!APP.data.registroTomas) APP.data.registroTomas = {};
     }
   } catch(e) { console.warn('Error cargando datos', e); }
 }
@@ -134,7 +137,7 @@ function loadSettings() {
   } catch(e) {}
 }
 
-// ─── CONTROL AUTOMÁTICO DE INVENTARIO (BIDIRECCIONAL Y RESISTENTE A MÓVILES) ──
+// ─── CONTROL AUTOMÁTICO DE INVENTARIO ────────────────────────
 function checkDailyInventoryDeduction() {
   const hoy = todayStr();
   const ultimaFecha = APP.data.lastInventoryDate;
@@ -224,7 +227,7 @@ function confirmModal(title, msg) {
   });
 }
 
-// ─── ALERTAS COMBINADAS: CITAS, RECEPCIONES, INVENTARIO Y FECHAS ESPECIALES ──
+// ─── ALERTAS COMBINADAS ──────────────────────────────────────
 function renderAlertas() {
   const bar = document.getElementById('alerts-bar');
   if (!bar) return;
@@ -262,7 +265,7 @@ function renderAlertas() {
     }
   });
 
-  // 3. Fechas Especiales / Notas de Calendario (HOY o MAÑANA) -> Alerta gris (#9e9e9e)
+  // 3. Fechas Especiales / Notas de Calendario (HOY o MAÑANA)
   (APP.data.fechasEspeciales || []).forEach(fe => {
     if (!fe.fecha) return;
     const dias = daysDiff(fe.fecha);
@@ -276,7 +279,7 @@ function renderAlertas() {
     }
   });
 
-  // 4. Control de Inventario (Stock bajo o agotado)
+  // 4. Control de Inventario
   (APP.data.medicamentos || []).forEach(med => {
     const stockMin = med.stockMinimo !== undefined ? Number(med.stockMinimo) : 5;
     if (med.cantidad <= stockMin) {
@@ -363,7 +366,7 @@ function switchTab(tabId) {
   if (tabId === 'medicamentos') renderMedicamentos();
   if (tabId === 'dosis') renderDosis();
   if (tabId === 'calendario') renderCalendar();
-  if (tabId === 'consulta') renderConsulta();
+  if (tabId === 'consulta') { updateConsultaFiltros(); renderConsulta(); }
   if (tabId === 'puntos') renderPuntos();
   if (tabId === 'citas') renderCitas();
 }
@@ -555,7 +558,6 @@ async function eliminarPaciente(id) {
   showToast('Paciente eliminado.', 'warning');
 }
 
-// ─── EXPORTAR RESUMEN MÉDICO EN PDF ───
 function exportarResumenPDF(pacienteId) {
   const pac = APP.data.pacientes.find(p => p.id === pacienteId);
   if (!pac) { showToast('Paciente no encontrado.', 'error'); return; }
@@ -686,7 +688,7 @@ function exportarResumenPDF(pacienteId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: MEDICAMENTOS
+// MÓDULO: MEDICAMENTOS Y REABASTECIMIENTO RÁPIDO
 // ─────────────────────────────────────────────────────────────
 
 function getMedsForPaciente(pacId) {
@@ -746,12 +748,42 @@ function renderMedicamentos() {
         </div>
       </div>
       <div class="med-actions">
+        <button class="btn btn-success btn-icon" data-action="reabastecer-med" data-id="${med.id}" title="Reabastecer stock (Llegó entrega)">📦 +</button>
         <button class="btn btn-secondary btn-icon" data-action="edit-med" data-id="${med.id}" title="Editar medicamento">✏️</button>
         <button class="btn btn-danger btn-icon" data-action="del-med" data-id="${med.id}" title="Eliminar medicamento">🗑️</button>
       </div>
     `;
     lista.appendChild(item);
   });
+}
+
+function openReabastecerModal(medId) {
+  const med = APP.data.medicamentos.find(m => m.id === medId);
+  if (!med) return;
+  APP.ui.reabastecerMedId = medId;
+  document.getElementById('reabastecer-med-nombre').textContent = `Medicamento: ${med.nombre} (${med.concentracion}${med.unidad}) — Stock actual: ${med.cantidad}`;
+  document.getElementById('reabastecer-cantidad').value = '';
+  document.getElementById('modal-reabastecer').style.display = 'flex';
+  document.getElementById('reabastecer-cantidad').focus();
+}
+
+function guardarReabastecimiento() {
+  const med = APP.data.medicamentos.find(m => m.id === APP.ui.reabastecerMedId);
+  const cant = parseFloat(document.getElementById('reabastecer-cantidad').value);
+  if (!med || isNaN(cant) || cant <= 0) {
+    showToast('Ingresa una cantidad válida mayor a 0.', 'warning');
+    return;
+  }
+
+  med.cantidad = Math.round((med.cantidad + cant) * 100) / 100;
+  med.fechaRecepcion = todayStr();
+  saveData();
+
+  document.getElementById('modal-reabastecer').style.display = 'none';
+  APP.ui.reabastecerMedId = null;
+  renderMedicamentos();
+  renderAlertas();
+  showToast(`¡Stock actualizado! +${cant} unidades ingresadas a ${med.nombre}.`, 'success');
 }
 
 function openFormMed(medId = null) {
@@ -861,7 +893,7 @@ async function eliminarMed(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: DOSIS CON FRECUENCIAS PERSONALIZADAS
+// MÓDULO: DOSIS, CHECKLIST DIARIO Y COMPARTIR WHATSAPP
 // ─────────────────────────────────────────────────────────────
 
 function updateDosisMedSelect() {
@@ -881,20 +913,29 @@ function updateDosisMedSelect() {
 function renderDosis() {
   const schedule = document.getElementById('dosis-schedule');
   const empty = document.getElementById('empty-dosis');
+  const btnWa = document.getElementById('btn-compartir-whatsapp-dosis');
   schedule.innerHTML = '';
 
   const pacId = APP.ui.selPacienteDosis;
   if (!pacId) {
     schedule.style.display = 'none';
     empty.style.display = 'block';
+    if (btnWa) btnWa.style.display = 'none';
     return;
   }
+
+  if (btnWa) btnWa.style.display = 'inline-flex';
 
   const dosisDelPaciente = APP.data.dosis.filter(d => d.pacienteId === pacId);
 
   const addWrap = document.createElement('div');
   addWrap.className = 'dosis-add-btn-wrap';
-  addWrap.innerHTML = `<button class="btn btn-primary" id="btn-nueva-dosis">+ Programar Dosis</button>`;
+  addWrap.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+      <span style="font-size:0.9rem; font-weight:600; color:var(--text-secondary);">📅 Tomas de hoy: ${fmtDate(todayStr())}</span>
+      <button class="btn btn-primary" id="btn-nueva-dosis">+ Programar Dosis</button>
+    </div>
+  `;
   schedule.appendChild(addWrap);
 
   if (dosisDelPaciente.length === 0) {
@@ -923,6 +964,11 @@ function renderDosis() {
     });
   });
 
+  const hoyKey = todayStr();
+  if (!APP.data.registroTomas[hoyKey]) {
+    APP.data.registroTomas[hoyKey] = {};
+  }
+
   ['mañana', 'tarde', 'noche'].forEach(j => {
     if (jornadaMap[j].length === 0) return;
     const block = document.createElement('div');
@@ -939,12 +985,19 @@ function renderDosis() {
     jornadaMap[j].forEach(({ dosis, med }) => {
       const row = document.createElement('div');
       row.className = 'dosis-row';
+
+      const tomaId = `${dosis.id}_${j}`;
+      const tomada = !!APP.data.registroTomas[hoyKey][tomaId];
+
       row.innerHTML = `
-        <div>
-          <div class="dosis-med-name">💊 ${esc(med.nombre)} <small style="color:var(--text-muted)">${med.concentracion}${med.unidad}</small></div>
-          <div style="font-size:0.78rem;color:var(--accent);margin-top:2px;">Frecuencia: <strong>${esc(getFrecuenciaTexto(dosis))}</strong></div>
-          ${dosis.notas ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${esc(dosis.notas)}</div>` : ''}
-        </div>
+        <label class="checklist-wrap" title="Marcar como tomada hoy">
+          <input type="checkbox" class="check-box-toma" data-toma="${tomaId}" ${tomada ? 'checked' : ''} />
+          <div class="${tomada ? 'toma-completada' : ''}">
+            <div class="dosis-med-name">💊 ${esc(med.nombre)} <small style="color:var(--text-muted)">${med.concentracion}${med.unidad}</small></div>
+            <div style="font-size:0.78rem;color:var(--accent);margin-top:2px;">Frecuencia: <strong>${esc(getFrecuenciaTexto(dosis))}</strong></div>
+            ${dosis.notas ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${esc(dosis.notas)}</div>` : ''}
+          </div>
+        </label>
         <div style="display:flex;align-items:center;gap:0.75rem;">
           <button class="btn btn-secondary btn-icon" data-action="edit-dosis" data-id="${dosis.id}" title="Editar">✏️</button>
           <button class="btn btn-danger btn-icon" data-action="del-dosis" data-id="${dosis.id}" title="Eliminar">🗑️</button>
@@ -957,6 +1010,62 @@ function renderDosis() {
   schedule.style.display = 'flex';
   empty.style.display = 'none';
   document.getElementById('btn-nueva-dosis')?.addEventListener('click', () => openFormDosis());
+
+  // Listener para el checklist de tomas
+  schedule.querySelectorAll('.check-box-toma').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const tid = e.target.dataset.toma;
+      APP.data.registroTomas[hoyKey][tid] = e.target.checked;
+      saveData();
+      renderDosis();
+      if (e.target.checked) {
+        showToast('¡Dosis marcada como tomada! Buen trabajo. 🩺', 'success', 2500);
+      }
+    });
+  });
+}
+
+function compartirPlanWhatsApp() {
+  const pacId = APP.ui.selPacienteDosis;
+  const pac = APP.data.pacientes.find(p => p.id === pacId);
+  if (!pac) return;
+
+  const dosisDelPaciente = APP.data.dosis.filter(d => d.pacienteId === pacId);
+  if (dosisDelPaciente.length === 0) {
+    showToast('El paciente no tiene dosis programadas para compartir.', 'warning');
+    return;
+  }
+
+  let texto = `*EL PASTILLERO Ob — Plan de Tomas Diarias*\n`;
+  texto += `👤 *Paciente:* ${pac.nombre}\n`;
+  texto += `📅 *Fecha:* ${fmtDate(todayStr())}\n\n`;
+
+  const jornadaMap = { mañana: [], tarde: [], noche: [] };
+  dosisDelPaciente.forEach(d => {
+    const med = APP.data.medicamentos.find(m => m.id === d.medicamentoId);
+    if (!med) return;
+    (d.jornadas || []).forEach(j => {
+      if (jornadaMap[j.jornada]) {
+        jornadaMap[j.jornada].push({ med, dosis: d, hora: j.hora });
+      }
+    });
+  });
+
+  const iconJornada = { mañana: '🌅 MAÑANA', tarde: '☀️ TARDE', noche: '🌙 NOCHE' };
+  ['mañana', 'tarde', 'noche'].forEach(j => {
+    if (jornadaMap[j].length > 0) {
+      texto += `*${iconJornada[j]}*\n`;
+      jornadaMap[j].forEach(({ med, dosis, hora }) => {
+        texto += `• ${med.nombre} ${med.concentracion}${med.unidad} (${hora || ''}): ${getFrecuenciaTexto(dosis)}`;
+        if (dosis.notas) texto += ` _[${dosis.notas}]_`;
+        texto += `\n`;
+      });
+      texto += `\n`;
+    }
+  });
+
+  const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
 }
 
 function openFormDosis(dosisId = null) {
@@ -1259,13 +1368,27 @@ function eliminarFechaEspecial() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: CONSULTA
+// MÓDULO: CONSULTA CON FILTROS DINÁMICOS
 // ─────────────────────────────────────────────────────────────
 
-function updateConsultaSelects() {
+function updateConsultaFiltros() {
+  // 1. Pacientes
+  const selPac = document.getElementById('sel-paciente-consulta');
+  const currentPac = APP.ui.selPacienteConsulta;
+  selPac.innerHTML = '<option value="">— Todos los pacientes —</option>';
+  APP.data.pacientes.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.nombre;
+    selPac.appendChild(opt);
+  });
+  selPac.value = currentPac;
+
+  // 2. Medicamentos
   const selMed = document.getElementById('sel-med-consulta');
-  const pacId = APP.ui.selPacienteConsulta;
-  const meds = pacId ? APP.data.medicamentos.filter(m => m.pacienteId === pacId) : APP.data.medicamentos;
+  const currentMed = APP.ui.selMedConsulta;
+  let meds = APP.data.medicamentos;
+  if (currentPac) meds = meds.filter(m => m.pacienteId === currentPac);
   selMed.innerHTML = '<option value="">— Todos los medicamentos —</option>';
   meds.forEach(m => {
     const opt = document.createElement('option');
@@ -1273,16 +1396,45 @@ function updateConsultaSelects() {
     opt.textContent = `${m.nombre} ${m.concentracion}${m.unidad}`;
     selMed.appendChild(opt);
   });
-  APP.ui.selMedConsulta = '';
+  selMed.value = currentMed;
+
+  // 3. Próximas Fechas de Recepción
+  const selFecha = document.getElementById('sel-fecha-recepcion-consulta');
+  const currentFecha = APP.ui.selFechaRecepcionConsulta;
+  const fechasUnicas = [...new Set(APP.data.medicamentos.map(m => m.proximaRecepcion).filter(Boolean))].sort();
+  selFecha.innerHTML = '<option value="">— Todas las fechas —</option>';
+  fechasUnicas.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f;
+    opt.textContent = `${fmtDate(f)} (${daysDiff(f) === 0 ? 'HOY' : daysDiff(f) + 'd'})`;
+    selFecha.appendChild(opt);
+  });
+  selFecha.value = currentFecha;
+
+  // 4. Puntos de Entrega
+  const selPunto = document.getElementById('sel-punto-consulta');
+  const currentPunto = APP.ui.selPuntoConsulta;
+  selPunto.innerHTML = '<option value="">— Todos los puntos —</option>';
+  (APP.data.puntosEntrega || []).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.nombre;
+    selPunto.appendChild(opt);
+  });
+  selPunto.value = currentPunto;
 }
 
 function getConsultaRows() {
   const pacId = APP.ui.selPacienteConsulta;
   const medId = APP.ui.selMedConsulta;
+  const fechaRec = APP.ui.selFechaRecepcionConsulta;
+  const puntoId = APP.ui.selPuntoConsulta;
 
   let meds = APP.data.medicamentos;
   if (pacId) meds = meds.filter(m => m.pacienteId === pacId);
   if (medId) meds = meds.filter(m => m.id === medId);
+  if (fechaRec) meds = meds.filter(m => m.proximaRecepcion === fechaRec);
+  if (puntoId) meds = meds.filter(m => m.puntoEntregaId === puntoId);
 
   return meds.map(med => {
     const pac = APP.data.pacientes.find(p => p.id === med.pacienteId);
@@ -1353,7 +1505,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '3.2',
+    version: '3.3.1',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1386,6 +1538,7 @@ function importarJSON(file, mode) {
           fechasEspeciales: incoming.fechasEspeciales || [],
           puntosEntrega: incoming.puntosEntrega || [],
           citas: incoming.citas || [],
+          registroTomas: incoming.registroTomas || {},
           lastInventoryDate: incoming.lastInventoryDate || todayStr()
         };
         showToast('Datos reemplazados correctamente.', 'success');
@@ -1401,6 +1554,7 @@ function importarJSON(file, mode) {
         APP.data.fechasEspeciales = mergeArr(APP.data.fechasEspeciales, incoming.fechasEspeciales);
         APP.data.puntosEntrega = mergeArr(APP.data.puntosEntrega, incoming.puntosEntrega);
         APP.data.citas = mergeArr(APP.data.citas, incoming.citas);
+        APP.data.registroTomas = { ...(APP.data.registroTomas || {}), ...(incoming.registroTomas || {}) };
         showToast(`Datos fusionados correctamente.`, 'success');
       }
 
@@ -1445,14 +1599,14 @@ function exportarExcel(rows) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PWA – SERVICE WORKER CON AUTO-ACTUALIZACIÓN
+// PWA – SERVICE WORKER
 // ─────────────────────────────────────────────────────────────
 
 let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.2').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=3.3').then(reg => {
       reg.update();
     }).catch(() => {});
 
@@ -1480,7 +1634,7 @@ function initPWA() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: PUNTOS DE ENTREGA Y CITAS MÉDICAS
+// MÓDULO: PUNTOS DE ENTREGA Y CITAS (WHATSAPP + CALENDARIOS)
 // ─────────────────────────────────────────────────────────────
 
 const PUNTO_CAMPOS = ['nombre','direccion','telefonos','correo','web','observaciones'];
@@ -1605,11 +1759,99 @@ function renderCitas() {
         </div>
       </div>
       <div class="med-actions">
+        <button class="btn btn-success btn-icon" data-action="wa-cita" data-id="${ct.id}" title="Compartir por WhatsApp">📲</button>
+        <button class="btn btn-primary btn-icon" data-action="gcal-cita" data-id="${ct.id}" title="Añadir a Google Calendar">📅</button>
+        <button class="btn btn-secondary btn-icon" data-action="ics-cita" data-id="${ct.id}" title="Descargar archivo (.ics) para otros calendarios">📥</button>
         <button class="btn btn-secondary btn-icon" data-action="edit-cita" data-id="${ct.id}" title="Editar">✏️</button>
         <button class="btn btn-danger btn-icon" data-action="del-cita" data-id="${ct.id}" title="Eliminar">🗑️</button>
       </div>`;
     lista.appendChild(item);
   });
+}
+
+function compartirCitaWhatsApp(citaId) {
+  const ct = APP.data.citas.find(x => x.id === citaId);
+  if (!ct) return;
+  const pac = APP.data.pacientes.find(p => p.id === ct.pacienteId);
+
+  let msg = `*🩺 RECORDATORIO DE CITA MÉDICA*\n`;
+  msg += `👤 *Paciente:* ${pac ? pac.nombre : 'Paciente'}\n`;
+  msg += `📆 *Fecha:* ${fmtDate(ct.fecha)} ${ct.hora ? 'a las ' + ct.hora : ''}\n`;
+  msg += `📋 *Servicio:* ${ct.servicio || 'Consulta Médica'}\n`;
+  if (ct.profesional) msg += `👨‍⚕️ *Profesional:* ${ct.profesional}\n`;
+  if (ct.lugar) msg += `🏥 *Lugar:* ${ct.lugar}\n`;
+  if (ct.direccion) msg += `📍 *Dirección:* ${ct.direccion}\n`;
+  if (ct.telefonos) msg += `📞 *Teléfono:* ${ct.telefonos}\n`;
+  if (ct.observaciones) msg += `\n📝 *Indicaciones:* ${ct.observaciones}\n`;
+
+  const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+function exportarCitaGoogleCalendar(citaId) {
+  const ct = APP.data.citas.find(x => x.id === citaId);
+  if (!ct || !ct.fecha) return;
+  const pac = APP.data.pacientes.find(p => p.id === ct.pacienteId);
+
+  const cleanDate = ct.fecha.replace(/-/g, '');
+  let datesParam = `${cleanDate}/${cleanDate}`;
+
+  if (ct.hora) {
+    const [hh, mm] = ct.hora.split(':');
+    const startStr = `${cleanDate}T${hh}${mm}00`;
+    const endHH = String((parseInt(hh, 10) + 1) % 24).padStart(2, '0');
+    const endStr = `${cleanDate}T${endHH}${mm}00`;
+    datesParam = `${startStr}/${endStr}`;
+  }
+
+  const title = encodeURIComponent(`Cita Médica: ${ct.servicio || 'Consulta'} - ${pac ? pac.nombre : ''}`);
+  const details = encodeURIComponent(`Profesional: ${ct.profesional || '—'}\nObservaciones: ${ct.observaciones || '—'}\nTeléfonos: ${ct.telefonos || '—'}`);
+  const location = encodeURIComponent(`${ct.lugar || ''} ${ct.direccion || ''}`.trim());
+
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${datesParam}&details=${details}&location=${location}`;
+  window.open(url, '_blank');
+}
+
+function exportarCitaICS(citaId) {
+  const ct = APP.data.citas.find(x => x.id === citaId);
+  if (!ct || !ct.fecha) return;
+  const pac = APP.data.pacientes.find(p => p.id === ct.pacienteId);
+
+  const cleanDate = ct.fecha.replace(/-/g, '');
+  let dtstart = `${cleanDate}`;
+  let dtend = `${cleanDate}`;
+
+  if (ct.hora) {
+    const [hh, mm] = ct.hora.split(':');
+    dtstart = `${cleanDate}T${hh}${mm}00`;
+    const endHH = String((parseInt(hh, 10) + 1) % 24).padStart(2, '0');
+    dtend = `${cleanDate}T${endHH}${mm}00`;
+  }
+
+  const icsContent = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//El Pastillero Ob//ES',
+    'BEGIN:VEVENT',
+    `UID:${genId()}@elpastillero`,
+    `DTSTAMP:${cleanDate}T000000Z`,
+    `DTSTART:${dtstart}`,
+    `DTEND:${dtend}`,
+    `SUMMARY:Cita: ${ct.servicio || 'Médica'} - ${pac ? pac.nombre : ''}`,
+    `DESCRIPTION:${(ct.observaciones || '') + ' ' + (ct.profesional ? 'Dr: ' + ct.profesional : '')}`,
+    `LOCATION:${ct.lugar || ''} ${ct.direccion || ''}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cita_${cleanDate}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Archivo de cita (.ics) descargado.', 'success');
 }
 
 function openFormCita(id = null) {
@@ -1701,7 +1943,7 @@ function initEventListeners() {
     if (action === 'pdf-pac')  { e.stopPropagation(); exportarResumenPDF(id); }
   });
 
-  // MEDICAMENTOS
+  // MEDICAMENTOS Y REABASTECER
   document.getElementById('sel-paciente-meds').addEventListener('change', (e) => {
     APP.ui.selPacienteMeds = e.target.value;
     renderMedicamentos();
@@ -1714,9 +1956,15 @@ function initEventListeners() {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const { action, id } = btn.dataset;
+    if (action === 'reabastecer-med') openReabastecerModal(id);
     if (action === 'edit-med') openFormMed(id);
     if (action === 'del-med') eliminarMed(id);
   });
+
+  document.getElementById('btn-cancelar-reabastecer').addEventListener('click', () => {
+    document.getElementById('modal-reabastecer').style.display = 'none';
+  });
+  document.getElementById('btn-guardar-reabastecer').addEventListener('click', guardarReabastecimiento);
 
   // DOSIS Y FRECUENCIA
   document.getElementById('sel-paciente-dosis').addEventListener('change', (e) => {
@@ -1732,6 +1980,7 @@ function initEventListeners() {
 
   document.getElementById('btn-cancelar-dosis').addEventListener('click', closeFormDosis);
   document.getElementById('btn-guardar-dosis').addEventListener('click', guardarDosis);
+  document.getElementById('btn-compartir-whatsapp-dosis').addEventListener('click', compartirPlanWhatsApp);
 
   document.getElementById('dosis-schedule').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
@@ -1773,16 +2022,25 @@ function initEventListeners() {
     document.getElementById('modal-dia-cal').style.display = 'none';
   });
 
-  // CONSULTA
+  // FILTROS DE CONSULTA
   document.getElementById('sel-paciente-consulta').addEventListener('change', (e) => {
     APP.ui.selPacienteConsulta = e.target.value;
-    updateConsultaSelects();
+    updateConsultaFiltros();
     renderConsulta();
   });
   document.getElementById('sel-med-consulta').addEventListener('change', (e) => {
     APP.ui.selMedConsulta = e.target.value;
     renderConsulta();
   });
+  document.getElementById('sel-fecha-recepcion-consulta').addEventListener('change', (e) => {
+    APP.ui.selFechaRecepcionConsulta = e.target.value;
+    renderConsulta();
+  });
+  document.getElementById('sel-punto-consulta').addEventListener('change', (e) => {
+    APP.ui.selPuntoConsulta = e.target.value;
+    renderConsulta();
+  });
+
   document.getElementById('btn-exportar-excel').addEventListener('click', () => {
     exportarExcel(getConsultaRows());
   });
@@ -1839,6 +2097,9 @@ function initEventListeners() {
   document.getElementById('btn-guardar-cita').addEventListener('click', guardarCita);
   document.getElementById('lista-citas').addEventListener('click', (e) => {
     const b = e.target.closest('[data-action]'); if (!b) return;
+    if (b.dataset.action === 'wa-cita') compartirCitaWhatsApp(b.dataset.id);
+    if (b.dataset.action === 'gcal-cita') exportarCitaGoogleCalendar(b.dataset.id);
+    if (b.dataset.action === 'ics-cita') exportarCitaICS(b.dataset.id);
     if (b.dataset.action === 'edit-cita') openFormCita(b.dataset.id);
     if (b.dataset.action === 'del-cita') eliminarCita(b.dataset.id);
   });
@@ -1876,7 +2137,6 @@ function init() {
   renderAlertas();
   initPWA();
 
-  // Verifica cambios de fecha / paso de medianoche cada minuto
   setInterval(() => {
     checkDailyInventoryDeduction();
     renderAlertas();
