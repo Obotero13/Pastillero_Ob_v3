@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3.3" />
-  <link rel="stylesheet" href="layout.css?v=3.3" />
+  <link rel="stylesheet" href="styles.css?v=3.5" />
+  <link rel="stylesheet" href="layout.css?v=3.5" />
   <style>
     /* Alerta para fechas especiales */
     .alert-item.alert-especial {
@@ -41,6 +41,40 @@
     .toma-completada {
       text-decoration: line-through;
       opacity: 0.6;
+    }
+
+    /* Íconos vectoriales SVG en botones de acción */
+    .btn-icon svg {
+      width: 17px;
+      height: 17px;
+      fill: currentColor;
+      display: inline-block;
+      vertical-align: middle;
+      pointer-events: none;
+    }
+    .btn-icon {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+    }
+    .btn-whatsapp {
+      background-color: #25D366 !important;
+      color: #ffffff !important;
+      border: none !important;
+    }
+    .btn-whatsapp:hover {
+      background-color: #20bd5a !important;
+    }
+    .btn-gcal {
+      background-color: #4285F4 !important;
+      color: #ffffff !important;
+      border: none !important;
+    }
+    .btn-gcal:hover {
+      background-color: #3367d6 !important;
     }
   </style>
 </head>
@@ -329,8 +363,9 @@
           <select class="form-select" id="sel-paciente-dosis" aria-label="Seleccionar paciente para dosis">
             <option value="">— Seleccionar paciente —</option>
           </select>
-          <button class="btn btn-success" id="btn-compartir-whatsapp-dosis" style="display:none;" title="Compartir plan de dosis por WhatsApp">
-            📲 WhatsApp
+          <button class="btn btn-whatsapp" id="btn-compartir-whatsapp-dosis" style="display:none;" title="Compartir plan de dosis por WhatsApp">
+            <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:currentColor;"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.54 1.769.814 2.791.814 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.768-5.77-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 4.418-3.582 8-8 8-1.42 0-2.753-.372-3.916-1.023l-4.115 1.078 1.096-4.011c-.722-1.206-1.065-2.58-1.065-4.044 0-4.418 3.582-8 8-8zm3.285 11.233c-.14-.07-.828-.408-.956-.455-.128-.047-.222-.07-.315.07-.094.14-.363.455-.445.549-.082.093-.164.105-.304.035-.14-.07-.591-.218-1.126-.695-.416-.371-.697-.83-.778-.97-.082-.14-.009-.215.061-.285.063-.062.14-.163.21-.245.07-.082.094-.14.14-.233.047-.094.023-.175-.012-.245-.035-.07-.315-.759-.432-1.039-.114-.273-.23-.236-.316-.24l-.27-.005c-.093 0-.245.035-.373.175-.128.14-.49.479-.49 1.168 0 .689.501 1.354.571 1.448.07.093.987 1.507 2.391 2.115.334.145.595.231.798.296.335.106.64.091.882.055.27-.04.828-.338.945-.666.117-.327.117-.607.082-.666-.035-.059-.128-.094-.268-.164z"/></svg>
+            <span style="margin-left:0.35rem;">WhatsApp</span>
           </button>
         </div>
       </div>
@@ -700,6 +735,6 @@
 
   <!-- Scripts externos (SheetJS para Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=3.3"></script>
+  <script src="app.js?v=3.5"></script>
 </body>
 </html>

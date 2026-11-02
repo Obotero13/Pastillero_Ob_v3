@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v3.3.1)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v3.5)
    ============================================================ */
 
 'use strict';
@@ -78,6 +78,11 @@ const initials = (name) => {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const webLink = (u) => { if (!u) return ''; const href = /^https?:\/\//i.test(u) ? u : 'https://' + u; return `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(u)}</a>`; };
 const detail = (icon, val, html) => val ? `<span class="med-detail-item">${icon} ${html || esc(val)}</span>` : '';
+
+// Isotipos SVG vectoriales para botones compactos
+const WA_SVG = `<svg viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.54 1.769.814 2.791.814 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.768-5.77-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 4.418-3.582 8-8 8-1.42 0-2.753-.372-3.916-1.023l-4.115 1.078 1.096-4.011c-.722-1.206-1.065-2.58-1.065-4.044 0-4.418 3.582-8 8-8zm3.285 11.233c-.14-.07-.828-.408-.956-.455-.128-.047-.222-.07-.315.07-.094.14-.363.455-.445.549-.082.093-.164.105-.304.035-.14-.07-.591-.218-1.126-.695-.416-.371-.697-.83-.778-.97-.082-.14-.009-.215.061-.285.063-.062.14-.163.21-.245.07-.082.094-.14.14-.233.047-.094.023-.175-.012-.245-.035-.07-.315-.759-.432-1.039-.114-.273-.23-.236-.316-.24l-.27-.005c-.093 0-.245.035-.373.175-.128.14-.49.479-.49 1.168 0 .689.501 1.354.571 1.448.07.093.987 1.507 2.391 2.115.334.145.595.231.798.296.335.106.64.091.882.055.27-.04.828-.338.945-.666.117-.327.117-.607.082-.666-.035-.059-.128-.094-.268-.164z"/></svg>`;
+const GCAL_SVG = `<svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg>`;
+const ICAL_SVG = `<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -227,7 +232,7 @@ function confirmModal(title, msg) {
   });
 }
 
-// ─── ALERTAS COMBINADAS ──────────────────────────────────────
+// ─── ALERTAS COMBINADAS: CITAS, RECEPCIONES, INVENTARIO Y FECHAS ESPECIALES ──
 function renderAlertas() {
   const bar = document.getElementById('alerts-bar');
   if (!bar) return;
@@ -265,7 +270,7 @@ function renderAlertas() {
     }
   });
 
-  // 3. Fechas Especiales / Notas de Calendario (HOY o MAÑANA)
+  // 3. Fechas Especiales / Notas de Calendario (HOY o MAÑANA) -> Alerta gris (#9e9e9e)
   (APP.data.fechasEspeciales || []).forEach(fe => {
     if (!fe.fecha) return;
     const dias = daysDiff(fe.fecha);
@@ -279,7 +284,7 @@ function renderAlertas() {
     }
   });
 
-  // 4. Control de Inventario
+  // 4. Control de Inventario (Stock bajo o agotado)
   (APP.data.medicamentos || []).forEach(med => {
     const stockMin = med.stockMinimo !== undefined ? Number(med.stockMinimo) : 5;
     if (med.cantidad <= stockMin) {
@@ -1011,7 +1016,6 @@ function renderDosis() {
   empty.style.display = 'none';
   document.getElementById('btn-nueva-dosis')?.addEventListener('click', () => openFormDosis());
 
-  // Listener para el checklist de tomas
   schedule.querySelectorAll('.check-box-toma').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const tid = e.target.dataset.toma;
@@ -1372,7 +1376,6 @@ function eliminarFechaEspecial() {
 // ─────────────────────────────────────────────────────────────
 
 function updateConsultaFiltros() {
-  // 1. Pacientes
   const selPac = document.getElementById('sel-paciente-consulta');
   const currentPac = APP.ui.selPacienteConsulta;
   selPac.innerHTML = '<option value="">— Todos los pacientes —</option>';
@@ -1384,7 +1387,6 @@ function updateConsultaFiltros() {
   });
   selPac.value = currentPac;
 
-  // 2. Medicamentos
   const selMed = document.getElementById('sel-med-consulta');
   const currentMed = APP.ui.selMedConsulta;
   let meds = APP.data.medicamentos;
@@ -1398,7 +1400,6 @@ function updateConsultaFiltros() {
   });
   selMed.value = currentMed;
 
-  // 3. Próximas Fechas de Recepción
   const selFecha = document.getElementById('sel-fecha-recepcion-consulta');
   const currentFecha = APP.ui.selFechaRecepcionConsulta;
   const fechasUnicas = [...new Set(APP.data.medicamentos.map(m => m.proximaRecepcion).filter(Boolean))].sort();
@@ -1411,7 +1412,6 @@ function updateConsultaFiltros() {
   });
   selFecha.value = currentFecha;
 
-  // 4. Puntos de Entrega
   const selPunto = document.getElementById('sel-punto-consulta');
   const currentPunto = APP.ui.selPuntoConsulta;
   selPunto.innerHTML = '<option value="">— Todos los puntos —</option>';
@@ -1505,7 +1505,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '3.3.1',
+    version: '3.5',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1599,14 +1599,14 @@ function exportarExcel(rows) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PWA – SERVICE WORKER
+// PWA – SERVICE WORKER CON AUTO-ACTUALIZACIÓN
 // ─────────────────────────────────────────────────────────────
 
 let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.3').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=3.5').then(reg => {
       reg.update();
     }).catch(() => {});
 
@@ -1759,11 +1759,11 @@ function renderCitas() {
         </div>
       </div>
       <div class="med-actions">
-        <button class="btn btn-success btn-icon" data-action="wa-cita" data-id="${ct.id}" title="Compartir por WhatsApp">📲</button>
-        <button class="btn btn-primary btn-icon" data-action="gcal-cita" data-id="${ct.id}" title="Añadir a Google Calendar">📅</button>
-        <button class="btn btn-secondary btn-icon" data-action="ics-cita" data-id="${ct.id}" title="Descargar archivo (.ics) para otros calendarios">📥</button>
-        <button class="btn btn-secondary btn-icon" data-action="edit-cita" data-id="${ct.id}" title="Editar">✏️</button>
-        <button class="btn btn-danger btn-icon" data-action="del-cita" data-id="${ct.id}" title="Eliminar">🗑️</button>
+        <button class="btn btn-whatsapp btn-icon" data-action="wa-cita" data-id="${ct.id}" title="Compartir cita por WhatsApp">${WA_SVG}</button>
+        <button class="btn btn-gcal btn-icon" data-action="gcal-cita" data-id="${ct.id}" title="Agregar a Google Calendar">${GCAL_SVG}</button>
+        <button class="btn btn-secondary btn-icon" data-action="ics-cita" data-id="${ct.id}" title="Descargar archivo (.ics) para calendario nativo">${ICAL_SVG}</button>
+        <button class="btn btn-secondary btn-icon" data-action="edit-cita" data-id="${ct.id}" title="Editar cita">✏️</button>
+        <button class="btn btn-danger btn-icon" data-action="del-cita" data-id="${ct.id}" title="Eliminar cita">🗑️</button>
       </div>`;
     lista.appendChild(item);
   });
@@ -1851,7 +1851,7 @@ function exportarCitaICS(citaId) {
   a.download = `cita_${cleanDate}.ics`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('Archivo de cita (.ics) descargado.', 'success');
+  showToast('Archivo de cita .ics descargado para tu calendario.', 'success');
 }
 
 function openFormCita(id = null) {
