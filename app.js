@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v3.5)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v3.7)
    ============================================================ */
 
 'use strict';
@@ -11,13 +11,14 @@ const APP = {
     medicamentos: [],    // [{id, pacienteId, nombre, concentracion, unidad, cantidad, stockMinimo, laboratorio, fechaRecepcion, proximaRecepcion, puntoEntregaId, notas}]
     dosis: [],           // [{id, pacienteId, medicamentoId, cantidadDia, frecuencia, intervaloDias, jornadas:[{jornada, hora}], notas}]
     puntosEntrega: [],   // [{id, nombre, direccion, telefonos, correo, web, observaciones}]
-    citas: [],           // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones}]
+    citas: [],           // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones, resLab, resWeb, resCorreo, resWhatsapp, resTelefono, resPasos}]
     fechasEspeciales: [],// [{fecha:'YYYY-MM-DD', comentario}]
     registroTomas: {},   // {'YYYY-MM-DD': { 'dosisId_jornada': true }}
     lastInventoryDate: null // 'YYYY-MM-DD'
   },
   ui: {
     tabActual: 'pacientes',
+    activeAlertCategory: null,
     editPacienteId: null,
     editMedId: null,
     editDosisId: null,
@@ -37,7 +38,8 @@ const APP = {
   },
   settings: {
     theme: 'green',
-    mode: 'dark'
+    mode: 'dark',
+    soundAlarm: true
   }
 };
 
@@ -77,9 +79,14 @@ const initials = (name) => {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const webLink = (u) => { if (!u) return ''; const href = /^https?:\/\//i.test(u) ? u : 'https://' + u; return `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(u)}</a>`; };
+const waLink = (num) => {
+  if (!num) return '';
+  const clean = String(num).replace(/\D/g, '');
+  return `<a href="https://wa.me/${esc(clean)}" target="_blank" rel="noopener" style="color:#25d366;font-weight:600;">📲 WhatsApp (${esc(num)})</a>`;
+};
 const detail = (icon, val, html) => val ? `<span class="med-detail-item">${icon} ${html || esc(val)}</span>` : '';
 
-// Isotipos SVG vectoriales para botones compactos
+// Isotipos SVG vectoriales compactos
 const WA_SVG = `<svg viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.54 1.769.814 2.791.814 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.768-5.77-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 4.418-3.582 8-8 8-1.42 0-2.753-.372-3.916-1.023l-4.115 1.078 1.096-4.011c-.722-1.206-1.065-2.58-1.065-4.044 0-4.418 3.582-8 8-8zm3.285 11.233c-.14-.07-.828-.408-.956-.455-.128-.047-.222-.07-.315.07-.094.14-.363.455-.445.549-.082.093-.164.105-.304.035-.14-.07-.591-.218-1.126-.695-.416-.371-.697-.83-.778-.97-.082-.14-.009-.215.061-.285.063-.062.14-.163.21-.245.07-.082.094-.14.14-.233.047-.094.023-.175-.012-.245-.035-.07-.315-.759-.432-1.039-.114-.273-.23-.236-.316-.24l-.27-.005c-.093 0-.245.035-.373.175-.128.14-.49.479-.49 1.168 0 .689.501 1.354.571 1.448.07.093.987 1.507 2.391 2.115.334.145.595.231.798.296.335.106.64.091.882.055.27-.04.828-.338.945-.666.117-.327.117-.607.082-.666-.035-.059-.128-.094-.268-.164z"/></svg>`;
 const GCAL_SVG = `<svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg>`;
 const ICAL_SVG = `<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
@@ -191,6 +198,112 @@ function checkDailyInventoryDeduction() {
   }
 }
 
+// ─── MONITOR DE ALARMA SONORA EN HORAS EXACTAS DE DOSIS ───────
+let lastAlarmMinute = '';
+
+function checkScheduledDoseAlarms() {
+  if (!APP.settings.soundAlarm) return;
+
+  const now = new Date();
+  const currentHH = String(now.getHours()).padStart(2, '0');
+  const currentMM = String(now.getMinutes()).padStart(2, '0');
+  const currentHM = `${currentHH}:${currentMM}`;
+
+  if (lastAlarmMinute === currentHM) return;
+
+  let medEncontrado = null;
+  let dosisEncontrada = null;
+
+  (APP.data.dosis || []).forEach(d => {
+    (d.jornadas || []).forEach(j => {
+      if (j.hora === currentHM) {
+        dosisEncontrada = d;
+        medEncontrado = APP.data.medicamentos.find(m => m.id === d.medicamentoId);
+      }
+    });
+  });
+
+  if (medEncontrado) {
+    lastAlarmMinute = currentHM;
+
+    // 1. Tono acústico de alerta médica (5 segundos continuos)
+    playDoseAlarmTone();
+
+    // 2. Vibración rítmica en teléfonos móviles
+    if ('vibrate' in navigator) {
+      navigator.vibrate([400, 200, 400, 200, 600, 200, 400, 200, 600]);
+    }
+
+    // 3. Notificación nativa del sistema (despierta pantalla de bloqueo)
+    triggerSystemNotification(medEncontrado.nombre, currentHM, dosisEncontrada);
+
+    // 4. Toast visible dentro de la app
+    showToast(`⏰ ¡HORA DE TOMAR MEDICAMENTO! ${medEncontrado.nombre} (${currentHM}).`, 'warning', 8000);
+  }
+}
+
+// Sonido llamativo de 5 segundos de duración (Beeper clínico de alerta)
+function playDoseAlarmTone() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const t = ctx.currentTime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.7, t); // Volumen óptimo y seguro
+    masterGain.connect(ctx.destination);
+
+    // 5 ciclos dobles de beeps a lo largo de 5 segundos (0s, 1s, 2s, 3s, 4s)
+    for (let i = 0; i < 5; i++) {
+      const startTime = t + (i * 1.0);
+
+      // Beep 1 (800 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(800, startTime);
+      gain1.gain.setValueAtTime(0.4, startTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, startTime + 0.22);
+      osc1.connect(gain1);
+      gain1.connect(masterGain);
+      osc1.start(startTime);
+      osc1.stop(startTime + 0.22);
+
+      // Beep 2 (1050 Hz)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(1050, startTime + 0.26);
+      gain2.gain.setValueAtTime(0.45, startTime + 0.26);
+      gain2.gain.exponentialRampToValueAtTime(0.001, startTime + 0.52);
+      osc2.connect(gain2);
+      gain2.connect(masterGain);
+      osc2.start(startTime + 0.26);
+      osc2.stop(startTime + 0.52);
+    }
+  } catch(e) {
+    console.warn('AudioContext bloqueado o no disponible:', e);
+  }
+}
+
+function triggerSystemNotification(nombreMed, horaStr, dosis) {
+  if (!('Notification' in window)) return;
+
+  if (Notification.permission === 'granted') {
+    try {
+      new Notification('💊 EL PASTILLERO: ¡Hora de tu medicamento!', {
+        body: `Es hora de tomar ${nombreMed} (${horaStr}). ${dosis && dosis.notas ? 'Nota: ' + dosis.notas : ''}`,
+        icon: 'icon-192.png',
+        badge: 'icon-192.png',
+        tag: 'pastillero-dosis-alerta',
+        renotify: true
+      });
+    } catch(e) {}
+  }
+}
+
 // ─── TOAST ───────────────────────────────────────────────────
 function showToast(msg, type = 'success', duration = 3500) {
   const icons = { success: '✅', error: '❌', warning: '⚠️', info: '🎨' };
@@ -232,13 +345,19 @@ function confirmModal(title, msg) {
   });
 }
 
-// ─── ALERTAS COMBINADAS: CITAS, RECEPCIONES, INVENTARIO Y FECHAS ESPECIALES ──
+// ─── ALERTAS INTELIGENTES: RESUMEN COLAPSABLE POR CATEGORÍA ──
 function renderAlertas() {
-  const bar = document.getElementById('alerts-bar');
-  if (!bar) return;
-  bar.innerHTML = '';
+  const container = document.getElementById('alerts-container');
+  const summaryBar = document.getElementById('alerts-summary-bar');
+  const panel = document.getElementById('alerts-dropdown-panel');
+  if (!container || !summaryBar || !panel) return;
 
-  const alertas = [];
+  const grupos = {
+    cita: [],
+    recepcion: [],
+    stock: [],
+    especial: []
+  };
 
   // 1. Citas Médicas (HOY o MAÑANA)
   (APP.data.citas || []).forEach(ct => {
@@ -248,11 +367,7 @@ function renderAlertas() {
       const pac = APP.data.pacientes.find(p => p.id === ct.pacienteId);
       const nomPac = pac ? pac.nombre : 'Paciente';
       const labelTiempo = dias === 0 ? 'HOY' : 'MAÑANA';
-      alertas.push({
-        tipo: 'cita',
-        prioridad: 1,
-        msg: `🩺 <strong>CITA ${labelTiempo}:</strong> ${esc(nomPac)} tiene cita de <strong>${esc(ct.servicio || 'Consulta')}</strong> ${ct.hora ? `a las ${esc(ct.hora)}` : ''} en ${esc(ct.lugar || 'centro de atención')}.`
-      });
+      grupos.cita.push(`🩺 <strong>CITA ${labelTiempo}:</strong> ${esc(nomPac)} tiene cita de <strong>${esc(ct.servicio || 'Consulta')}</strong> ${ct.hora ? `a las ${esc(ct.hora)}` : ''} en ${esc(ct.lugar || 'centro de atención')}.`);
     }
   });
 
@@ -261,26 +376,18 @@ function renderAlertas() {
     const dias = daysDiff(med.proximaRecepcion);
     if (dias >= 0 && dias <= 7) {
       const pac = APP.data.pacientes.find(p => p.id === med.pacienteId);
-      const nomPac = pac ? pac.nombre : 'Paciente desconocido';
-      alertas.push({
-        tipo: 'recepcion',
-        prioridad: 2,
-        msg: `📆 <strong>RECEPCIÓN:</strong> ${esc(nomPac)} — <strong>${esc(med.nombre)} ${med.concentracion}${med.unidad}</strong> en <strong>${dias === 0 ? 'HOY' : dias === 1 ? '1 día' : dias + ' días'}</strong> (${fmtDate(med.proximaRecepcion)}).`
-      });
+      const nomPac = pac ? pac.nombre : 'Paciente';
+      grupos.recepcion.push(`📆 <strong>RECEPCIÓN:</strong> ${esc(nomPac)} — <strong>${esc(med.nombre)} ${med.concentracion}${med.unidad}</strong> en <strong>${dias === 0 ? 'HOY' : dias === 1 ? '1 día' : dias + ' días'}</strong> (${fmtDate(med.proximaRecepcion)}).`);
     }
   });
 
-  // 3. Fechas Especiales / Notas de Calendario (HOY o MAÑANA) -> Alerta gris (#9e9e9e)
+  // 3. Fechas Especiales (HOY o MAÑANA)
   (APP.data.fechasEspeciales || []).forEach(fe => {
     if (!fe.fecha) return;
     const dias = daysDiff(fe.fecha);
     if (dias >= 0 && dias <= 1) {
       const labelTiempo = dias === 0 ? 'HOY' : 'MAÑANA';
-      alertas.push({
-        tipo: 'especial',
-        prioridad: 2.5,
-        msg: `⭐ <strong>RECORDATORIO (${labelTiempo} - ${fmtDate(fe.fecha)}):</strong> ${esc(fe.comentario)}`
-      });
+      grupos.especial.push(`⭐ <strong>RECORDATORIO (${labelTiempo} - ${fmtDate(fe.fecha)}):</strong> ${esc(fe.comentario)}`);
     }
   });
 
@@ -291,48 +398,56 @@ function renderAlertas() {
       const pac = APP.data.pacientes.find(p => p.id === med.pacienteId);
       const nomPac = pac ? pac.nombre : 'Paciente';
       const agotado = med.cantidad <= 0;
-      alertas.push({
-        tipo: 'stock',
-        prioridad: agotado ? 0 : 3,
-        msg: `⚠️ <strong>STOCK ${agotado ? 'AGOTADO' : 'BAJO'}:</strong> ${esc(nomPac)} — Quedan <strong>${med.cantidad}</strong> unidades de <strong>${esc(med.nombre)}</strong> (Mínimo: ${stockMin}).`
-      });
+      grupos.stock.push(`⚠️ <strong>STOCK ${agotado ? 'AGOTADO' : 'BAJO'}:</strong> ${esc(nomPac)} — Quedan <strong>${med.cantidad}</strong> de <strong>${esc(med.nombre)}</strong> (Mín: ${stockMin}).`);
     }
   });
 
-  if (alertas.length > 0) {
-    alertas.sort((a, b) => a.prioridad - b.prioridad);
-    alertas.forEach(al => {
-      const div = document.createElement('div');
-      div.className = `alert-item alert-${al.tipo}`;
-      div.innerHTML = al.msg;
-      bar.appendChild(div);
-    });
-    document.body.classList.add('has-alerts');
-    playAlertSound();
-  } else {
-    document.body.classList.remove('has-alerts');
-  }
-}
+  const totalAlertas = grupos.cita.length + grupos.recepcion.length + grupos.stock.length + grupos.especial.length;
 
-function playAlertSound() {
-  if (!userInteracted) return;
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    if (ctx.state === 'suspended') ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.45);
-  } catch(e) {}
+  if (totalAlertas === 0) {
+    container.style.display = 'none';
+    panel.style.display = 'none';
+    APP.ui.activeAlertCategory = null;
+    return;
+  }
+
+  container.style.display = 'block';
+  summaryBar.innerHTML = `<span style="font-size:0.8rem; font-weight:700; margin-right:0.3rem;">🚨 Alertas (${totalAlertas}):</span>`;
+
+  const confCategorias = [
+    { key: 'cita', icon: '🩺', label: 'Citas', class: 'chip-cita' },
+    { key: 'recepcion', icon: '📆', label: 'Recepciones', class: 'chip-recepcion' },
+    { key: 'stock', icon: '⚠️', label: 'Stock Bajo', class: 'chip-stock' },
+    { key: 'especial', icon: '⭐', label: 'Especiales', class: 'chip-especial' }
+  ];
+
+  confCategorias.forEach(cat => {
+    const count = grupos[cat.key].length;
+    if (count > 0) {
+      const btn = document.createElement('button');
+      btn.className = `alert-chip-btn ${cat.class} ${APP.ui.activeAlertCategory === cat.key ? 'active' : ''}`;
+      btn.innerHTML = `${cat.icon} ${cat.label} <strong>(${count})</strong> ${APP.ui.activeAlertCategory === cat.key ? '▲' : '▼'}`;
+      btn.addEventListener('click', () => {
+        if (APP.ui.activeAlertCategory === cat.key) {
+          APP.ui.activeAlertCategory = null;
+          panel.style.display = 'none';
+        } else {
+          APP.ui.activeAlertCategory = cat.key;
+          panel.style.display = 'flex';
+          panel.innerHTML = grupos[cat.key].map(m => `<div class="alert-item alert-${cat.key}">${m}</div>`).join('');
+        }
+        renderAlertas();
+      });
+      summaryBar.appendChild(btn);
+    }
+  });
+
+  if (APP.ui.activeAlertCategory && grupos[APP.ui.activeAlertCategory].length > 0) {
+    panel.style.display = 'flex';
+    panel.innerHTML = grupos[APP.ui.activeAlertCategory].map(m => `<div class="alert-item alert-${APP.ui.activeAlertCategory}">${m}</div>`).join('');
+  } else {
+    panel.style.display = 'none';
+  }
 }
 
 // ─── TEMA Y MODO ──────────────────────────────────────────────
@@ -352,6 +467,13 @@ function applyThemeAndMode() {
   const toggleBtn = document.getElementById('mode-toggle');
   toggleBtn.querySelector('.mode-icon').textContent = APP.settings.mode === 'dark' ? '☀️' : '🌙';
   toggleBtn.querySelector('.mode-text').textContent = APP.settings.mode === 'dark' ? 'Modo Claro' : 'Modo Oscuro';
+
+  const alarmBtn = document.getElementById('btn-sound-alarm');
+  if (alarmBtn) {
+    alarmBtn.classList.toggle('active', !!APP.settings.soundAlarm);
+    alarmBtn.querySelector('.alarm-icon').textContent = APP.settings.soundAlarm ? '🔔' : '🔕';
+    alarmBtn.querySelector('.alarm-text').textContent = APP.settings.soundAlarm ? 'Alarma: ON' : 'Alarma: OFF';
+  }
 }
 
 // ─── NAVEGACIÓN DE PESTAÑAS ───────────────────────────────────
@@ -1505,7 +1627,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '3.5',
+    version: '3.7',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1606,7 +1728,7 @@ let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.5').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=3.7').then(reg => {
       reg.update();
     }).catch(() => {});
 
@@ -1634,11 +1756,12 @@ function initPWA() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: PUNTOS DE ENTREGA Y CITAS (WHATSAPP + CALENDARIOS)
+// MÓDULO: PUNTOS DE ENTREGA Y CITAS (CON RESULTADOS MÉDICOS)
 // ─────────────────────────────────────────────────────────────
 
 const PUNTO_CAMPOS = ['nombre','direccion','telefonos','correo','web','observaciones'];
 const CITA_CAMPOS = ['lugar','fecha','hora','servicio','profesional','direccion','telefonos','correo','web','observaciones'];
+const CITA_RES_CAMPOS = ['resLab','resWeb','resCorreo','resWhatsapp','resTelefono','resPasos'];
 
 function puntoNombre(id) {
   if (!id) return '';
@@ -1746,6 +1869,8 @@ function renderCitas() {
     const dias = daysDiff(ct.fecha);
     const urgente = dias >= 0 && dias <= 1;
 
+    const tieneResultados = ct.resLab || ct.resWeb || ct.resCorreo || ct.resWhatsapp || ct.resTelefono || ct.resPasos;
+
     const item = document.createElement('div');
     item.className = 'med-item' + (urgente ? ' near-expiry' : '');
     item.innerHTML = `
@@ -1757,6 +1882,16 @@ function renderCitas() {
         <div class="med-details">
           ${detail('🤵', pac ? pac.nombre : '')}${detail('👨‍⚕️', ct.profesional)}${detail('🏥', ct.lugar)}${detail('📍', ct.direccion)}${detail('📞', ct.telefonos)}${detail('📧', ct.correo)}${detail('🌐', ct.web, webLink(ct.web))}${detail('📝', ct.observaciones)}
         </div>
+
+        ${tieneResultados ? `
+          <div class="cita-resultados-box">
+            <h4>🧪 Consulta de Resultados</h4>
+            <div class="med-details" style="margin-top:0.25rem;">
+              ${detail('🏢', ct.resLab)}${detail('🌐', ct.resWeb, webLink(ct.resWeb))}${detail('📧', ct.resCorreo)}${detail('📲', ct.resWhatsapp, waLink(ct.resWhatsapp))}${detail('📞', ct.resTelefono)}
+            </div>
+            ${ct.resPasos ? `<div style="font-size:0.78rem;margin-top:0.4rem;white-space:pre-wrap;background:rgba(0,0,0,0.05);padding:0.4rem;border-radius:4px;"><strong>Pasos:</strong><br>${esc(ct.resPasos)}</div>` : ''}
+          </div>
+        ` : ''}
       </div>
       <div class="med-actions">
         <button class="btn btn-whatsapp btn-icon" data-action="wa-cita" data-id="${ct.id}" title="Compartir cita por WhatsApp">${WA_SVG}</button>
@@ -1784,6 +1919,15 @@ function compartirCitaWhatsApp(citaId) {
   if (ct.telefonos) msg += `📞 *Teléfono:* ${ct.telefonos}\n`;
   if (ct.observaciones) msg += `\n📝 *Indicaciones:* ${ct.observaciones}\n`;
 
+  if (ct.resLab || ct.resWeb || ct.resWhatsapp || ct.resPasos) {
+    msg += `\n*🧪 RESULTADOS DE EXÁMENES:*\n`;
+    if (ct.resLab) msg += `🏢 *Laboratorio:* ${ct.resLab}\n`;
+    if (ct.resWeb) msg += `🌐 *Portal Web:* ${ct.resWeb}\n`;
+    if (ct.resWhatsapp) msg += `📲 *WhatsApp:* ${ct.resWhatsapp}\n`;
+    if (ct.resTelefono) msg += `📞 *Tel:* ${ct.resTelefono}\n`;
+    if (ct.resPasos) msg += `📋 *Pasos:* ${ct.resPasos}\n`;
+  }
+
   const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
 }
@@ -1805,7 +1949,11 @@ function exportarCitaGoogleCalendar(citaId) {
   }
 
   const title = encodeURIComponent(`Cita Médica: ${ct.servicio || 'Consulta'} - ${pac ? pac.nombre : ''}`);
-  const details = encodeURIComponent(`Profesional: ${ct.profesional || '—'}\nObservaciones: ${ct.observaciones || '—'}\nTeléfonos: ${ct.telefonos || '—'}`);
+  let det = `Profesional: ${ct.profesional || '—'}\nObservaciones: ${ct.observaciones || '—'}\nTeléfonos: ${ct.telefonos || '—'}`;
+  if (ct.resWeb || ct.resPasos) {
+    det += `\n\nResultados: ${ct.resLab || ''} ${ct.resWeb || ''}\nPasos: ${ct.resPasos || ''}`;
+  }
+  const details = encodeURIComponent(det);
   const location = encodeURIComponent(`${ct.lugar || ''} ${ct.direccion || ''}`.trim());
 
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${datesParam}&details=${details}&location=${location}`;
@@ -1857,9 +2005,17 @@ function exportarCitaICS(citaId) {
 function openFormCita(id = null) {
   APP.ui.editCitaId = id;
   const ct = id ? APP.data.citas.find(x => x.id === id) : null;
-  document.getElementById('form-cita-title').textContent = ct ? 'Editar Cita Médica' : 'Nueva Cita Médica';
+  document.getElementById('form-cita-title').textContent = ct ? 'Editar Cita y Resultados' : 'Nueva Cita Médica';
   document.getElementById('cita-paciente').value = ct ? (ct.pacienteId || '') : '';
+
   CITA_CAMPOS.forEach(k => { document.getElementById('cita-' + k).value = ct ? (ct[k] || '') : ''; });
+  document.getElementById('cita-res-laboratorio').value = ct ? (ct.resLab || '') : '';
+  document.getElementById('cita-res-web').value = ct ? (ct.resWeb || '') : '';
+  document.getElementById('cita-res-correo').value = ct ? (ct.resCorreo || '') : '';
+  document.getElementById('cita-res-whatsapp').value = ct ? (ct.resWhatsapp || '') : '';
+  document.getElementById('cita-res-telefono').value = ct ? (ct.resTelefono || '') : '';
+  document.getElementById('cita-res-pasos').value = ct ? (ct.resPasos || '') : '';
+
   const card = document.getElementById('form-cita-card');
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1876,16 +2032,24 @@ function guardarCita() {
   if (!fecha) { showToast('La fecha de la cita es obligatoria.', 'error'); return; }
   if (!lugar) { showToast('El lugar de la cita es obligatorio.', 'error'); return; }
 
-  const datos = { pacienteId: pacId };
+  const datos = {
+    pacienteId: pacId,
+    resLab: document.getElementById('cita-res-laboratorio').value.trim(),
+    resWeb: document.getElementById('cita-res-web').value.trim(),
+    resCorreo: document.getElementById('cita-res-correo').value.trim(),
+    resWhatsapp: document.getElementById('cita-res-whatsapp').value.trim(),
+    resTelefono: document.getElementById('cita-res-telefono').value.trim(),
+    resPasos: document.getElementById('cita-res-pasos').value.trim()
+  };
   CITA_CAMPOS.forEach(k => { datos[k] = document.getElementById('cita-' + k).value.trim(); });
 
   if (APP.ui.editCitaId) {
     const idx = APP.data.citas.findIndex(x => x.id === APP.ui.editCitaId);
     if (idx > -1) APP.data.citas[idx] = { ...APP.data.citas[idx], ...datos };
-    showToast('Cita médica actualizada.', 'success');
+    showToast('Cita médica y resultados actualizados.', 'success');
   } else {
     APP.data.citas.push({ id: genId(), ...datos });
-    showToast('Cita médica agendada.', 'success');
+    showToast('Cita médica agendada correctamente.', 'success');
   }
   saveData();
   closeFormCita();
@@ -1895,7 +2059,7 @@ function guardarCita() {
 }
 
 async function eliminarCita(id) {
-  const ok = await confirmModal('Eliminar Cita', '¿Eliminar esta cita médica?');
+  const ok = await confirmModal('Eliminar Cita', '¿Eliminar esta cita médica y sus datos de resultados?');
   if (!ok) return;
   APP.data.citas = APP.data.citas.filter(x => x.id !== id);
   saveData();
@@ -1923,6 +2087,26 @@ function initEventListeners() {
     APP.settings.mode = APP.settings.mode === 'dark' ? 'light' : 'dark';
     applyThemeAndMode();
     saveSettings();
+  });
+
+  // Toggle de Alarma Sonora de Horarios + Permiso de Notificaciones
+  document.getElementById('btn-sound-alarm').addEventListener('click', async () => {
+    APP.settings.soundAlarm = !APP.settings.soundAlarm;
+    applyThemeAndMode();
+    saveSettings();
+
+    if (APP.settings.soundAlarm) {
+      // Solicita permiso nativo para vibración y notificaciones si aún no se tiene
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        try { await Notification.requestPermission(); } catch(e) {}
+      }
+
+      // Prueba auditiva de 1 segundo para confirmar al usuario que funciona
+      playDoseAlarmTone();
+      showToast('🔔 Alarma sonora y vibración activadas.', 'info', 3000);
+    } else {
+      showToast('🔕 Alarma sonora desactivada.', 'warning', 2500);
+    }
   });
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2114,6 +2298,7 @@ function initEventListeners() {
   // REACTIVACIÓN Y CAMBIOS DE FECHA EN MÓVILES (ONLINE / OFFLINE)
   const revalidarApp = () => {
     checkDailyInventoryDeduction();
+    checkScheduledDoseAlarms();
     renderAlertas();
   };
 
@@ -2137,10 +2322,12 @@ function init() {
   renderAlertas();
   initPWA();
 
+  // Verifica cambios de hora / alarmas sonoras cada 20 segundos
   setInterval(() => {
     checkDailyInventoryDeduction();
+    checkScheduledDoseAlarms();
     renderAlertas();
-  }, 60 * 1000);
+  }, 20 * 1000);
 
   if (APP.data.pacientes.length === 0) {
     setTimeout(() => {

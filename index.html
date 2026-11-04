@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,10 +9,61 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3.5" />
-  <link rel="stylesheet" href="layout.css?v=3.5" />
+  <link rel="stylesheet" href="styles.css?v=3.7" />
+  <link rel="stylesheet" href="layout.css?v=3.7" />
   <style>
-    /* Alerta para fechas especiales */
+    /* ─── BARRA DE ALERTAS COMPACTA Y COLAPSABLE ─── */
+    .alerts-container {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 95;
+    }
+    .alerts-summary-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      align-items: center;
+      background: rgba(0,0,0,0.03);
+    }
+    .alert-chip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+    }
+    .alert-chip-btn:hover {
+      filter: brightness(1.1);
+    }
+    .alert-chip-btn.active {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .chip-cita { border-color: #2196f3; color: #2196f3; }
+    .chip-recepcion { border-color: #ff9800; color: #ff9800; }
+    .chip-stock { border-color: #f44336; color: #f44336; }
+    .chip-especial { border-color: #9e9e9e; color: #9e9e9e; }
+
+    .alerts-dropdown-panel {
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 0.6rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      background: var(--bg-card);
+      border-top: 1px dashed var(--border-color);
+    }
     .alert-item.alert-especial {
       background: rgba(158, 158, 158, 0.15);
       border-left: 4px solid #9e9e9e;
@@ -24,23 +74,62 @@
       color: #333333;
       border-left: 4px solid #757575;
     }
-    /* Estilos para el checklist diario de dosis */
-    .checklist-wrap {
+
+    /* ─── SECCIÓN SEPARADA PARA RESULTADOS EN CITAS ─── */
+    .form-section-divider {
+      grid-column: 1 / -1;
+      margin: 1.2rem 0 0.4rem 0;
+      padding-top: 1rem;
+      border-top: 2px dashed var(--border-color);
+    }
+    .form-section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      cursor: pointer;
-      user-select: none;
+      gap: 0.5rem;
     }
-    .check-box-toma {
-      width: 22px;
-      height: 22px;
-      cursor: pointer;
-      accent-color: var(--accent);
+    .form-section-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
     }
-    .toma-completada {
-      text-decoration: line-through;
-      opacity: 0.6;
+    .cita-resultados-box {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: rgba(33, 150, 243, 0.06);
+      border: 1px solid rgba(33, 150, 243, 0.2);
+    }
+    .cita-resultados-box h4 {
+      font-size: 0.85rem;
+      color: #2196f3;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* ─── BOTÓN DE ALARMA SONORA EN HEADER ─── */
+    .alarm-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+    }
+    .alarm-toggle-btn.active {
+      background: rgba(76, 175, 80, 0.15);
+      border-color: #4caf50;
+      color: #4caf50;
     }
 
     /* Íconos vectoriales SVG en botones de acción */
@@ -76,6 +165,23 @@
     .btn-gcal:hover {
       background-color: #3367d6 !important;
     }
+    .checklist-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .check-box-toma {
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .toma-completada {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
   </style>
 </head>
 <body class="theme-green mode-dark">
@@ -99,6 +205,12 @@
       </div>
     </div>
     <div class="header-right">
+      <!-- Interruptor de alarma sonora de toma de pastillas -->
+      <button class="alarm-toggle-btn active" id="btn-sound-alarm" title="Activar/Desactivar alarma sonora para las dosis">
+        <span class="alarm-icon">🔔</span>
+        <span class="alarm-text">Alarma: ON</span>
+      </button>
+
       <!-- Selector de tema de color -->
       <div class="theme-selector" id="theme-selector">
         <span class="theme-label">Tema:</span>
@@ -109,6 +221,7 @@
         <button class="theme-dot theme-orange" data-theme="orange" title="Naranja" aria-label="Tema Naranja"></button>
         <button class="theme-dot theme-yellow" data-theme="yellow" title="Amarillo" aria-label="Tema Amarillo"></button>
       </div>
+
       <!-- Toggle modo oscuro/claro -->
       <button class="mode-toggle" id="mode-toggle" title="Cambiar modo" aria-label="Cambiar modo claro/oscuro">
         <span class="mode-icon">🌙</span>
@@ -117,8 +230,11 @@
     </div>
   </header>
 
-  <!-- BARRA DE ALERTAS (CITAS, RECEPCIONES, INVENTARIO, FECHAS ESPECIALES) -->
-  <div class="alerts-bar" id="alerts-bar" role="alert" aria-live="polite"></div>
+  <!-- BARRA DE ALERTAS INTELIGENTE Y COLAPSABLE -->
+  <div class="alerts-container" id="alerts-container" style="display:none;" role="alert" aria-live="polite">
+    <div class="alerts-summary-bar" id="alerts-summary-bar"></div>
+    <div class="alerts-dropdown-panel" id="alerts-dropdown-panel" style="display:none;"></div>
+  </div>
 
   <!-- NAVEGACIÓN DE PESTAÑAS -->
   <nav class="tab-nav" id="tab-nav" role="navigation" aria-label="Navegación principal">
@@ -160,7 +276,6 @@
         </button>
       </div>
 
-      <!-- Formulario nuevo/editar paciente -->
       <div class="card form-card" id="form-paciente-card" style="display:none;">
         <h2 class="card-title" id="form-paciente-title">Nuevo Paciente</h2>
         <div class="form-grid">
@@ -217,7 +332,6 @@
         </div>
       </div>
 
-      <!-- Lista de pacientes -->
       <div id="lista-pacientes" class="patients-grid"></div>
       <div id="empty-pacientes" class="empty-state">
         <div class="empty-icon">👫</div>
@@ -239,7 +353,6 @@
         </div>
       </div>
 
-      <!-- Formulario medicamento -->
       <div class="card form-card" id="form-med-card" style="display:none;">
         <h2 class="card-title" id="form-med-title">Nuevo Medicamento</h2>
         <div class="form-grid">
@@ -299,7 +412,6 @@
         </div>
       </div>
 
-      <!-- Lista de medicamentos -->
       <div id="lista-medicamentos" class="meds-list"></div>
       <div id="empty-medicamentos" class="empty-state">
         <div class="empty-icon">💊</div>
@@ -370,7 +482,6 @@
         </div>
       </div>
 
-      <!-- Formulario dosis -->
       <div class="card form-card" id="form-dosis-card" style="display:none;">
         <h2 class="card-title">Programar Dosis</h2>
         <div class="form-grid">
@@ -429,7 +540,6 @@
         </div>
       </div>
 
-      <!-- Schedule view -->
       <div id="dosis-schedule" class="dosis-schedule"></div>
       <div id="empty-dosis" class="empty-state">
         <div class="empty-icon">⏰</div>
@@ -468,7 +578,6 @@
         </div>
       </div>
 
-      <!-- Modal fecha especial -->
       <div class="modal-overlay" id="modal-fecha-especial" style="display:none;">
         <div class="modal-card">
           <h3 class="modal-title" id="modal-fecha-titulo">Marcar fecha especial</h3>
@@ -486,47 +595,49 @@
       </div>
     </section>
 
-    <!-- TAB: CITAS MÉDICAS -->
+    <!-- TAB: CITAS MÉDICAS (CON SECCIÓN DE RESULTADOS) -->
     <section class="tab-panel" id="panel-citas" role="tabpanel" aria-labelledby="tab-citas">
       <div class="panel-header">
-        <h1 class="panel-title">🩺 Citas Médicas</h1>
+        <h1 class="panel-title">🩺 Citas Médicas y Resultados</h1>
         <div class="header-actions">
           <button class="btn btn-primary" id="btn-nueva-cita"><span>+</span> Nueva Cita</button>
         </div>
       </div>
+
       <div class="card form-card" id="form-cita-card" style="display:none;">
         <h2 class="card-title" id="form-cita-title">Nueva Cita Médica</h2>
         <div class="form-grid">
+          <!-- PARTE 1: DATOS DE LA CITA -->
           <div class="form-group full-width">
             <label class="form-label" for="cita-paciente">Paciente *</label>
             <select class="form-select" id="cita-paciente" required><option value="">— Seleccionar paciente —</option></select>
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="cita-lugar">Lugar / Centro Médico *</label>
-            <input type="text" class="form-input" id="cita-lugar" placeholder="Ej: Clínica, Consultorio, Local" required />
+            <input type="text" class="form-input" id="cita-lugar" placeholder="Ej: Clínica Medellín, EPS Sura..." required />
           </div>
           <div class="form-group">
-            <label class="form-label" for="cita-fecha">Fecha *</label>
+            <label class="form-label" for="cita-fecha">Fecha de la Cita *</label>
             <input type="date" class="form-input" id="cita-fecha" required />
           </div>
           <div class="form-group">
-            <label class="form-label" for="cita-hora">Hora</label>
+            <label class="form-label" for="cita-hora">Hora de la Cita</label>
             <input type="time" class="form-input" id="cita-hora" />
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-servicio">Servicio / Especialidad</label>
-            <input type="text" class="form-input" id="cita-servicio" placeholder="Ej: Medicina General, Especialidad" />
+            <input type="text" class="form-input" id="cita-servicio" placeholder="Ej: Cardiología, Laboratorio..." />
           </div>
           <div class="form-group">
             <label class="form-label" for="cita-profesional">Profesional / Médico</label>
-            <input type="text" class="form-input" id="cita-profesional" placeholder="Ej: Dr. xyz " />
+            <input type="text" class="form-input" id="cita-profesional" placeholder="Ej: Dra. Claudia Restrepo" />
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="cita-direccion">Dirección</label>
-            <input type="text" class="form-input" id="cita-direccion" placeholder="Ej: Calle xx # xx-xx" />
+            <input type="text" class="form-input" id="cita-direccion" placeholder="Ej: Calle 50 # 40-20 Consultorio 402" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="cita-telefonos">Teléfonos</label>
+            <label class="form-label" for="cita-telefonos">Teléfonos de la Cita</label>
             <input type="text" class="form-input" id="cita-telefonos" placeholder="Ej: (604) ... / 300 ..." />
           </div>
           <div class="form-group">
@@ -534,19 +645,51 @@
             <input type="email" class="form-input" id="cita-correo" placeholder="citas@clinica.com" />
           </div>
           <div class="form-group full-width">
-            <label class="form-label" for="cita-web">Página web</label>
+            <label class="form-label" for="cita-web">Página web de la Cita</label>
             <input type="url" class="form-input" id="cita-web" placeholder="https://" />
           </div>
           <div class="form-group full-width">
-            <label class="form-label" for="cita-observaciones">Observaciones / Preparación</label>
-            <textarea class="form-input form-textarea" id="cita-observaciones" placeholder="Llevar exámenes recientes, ayuno de 8 horas, etc."></textarea>
+            <label class="form-label" for="cita-observaciones">Preparación / Indicaciones de la Cita</label>
+            <textarea class="form-input form-textarea" id="cita-observaciones" placeholder="Ayuno de 8 horas, llevar historia clínica..."></textarea>
+          </div>
+
+          <!-- PARTE 2: CONSULTA DE RESULTADOS (SEPARADA Y CLARA) -->
+          <div class="form-section-divider">
+            <div class="form-section-title">🧪 Consulta de Resultados de Exámenes / Ayudas</div>
+            <div class="form-section-desc">Ingresa aquí los accesos, portales o teléfonos donde reclamar o descargar los resultados médicos.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cita-res-laboratorio">Laboratorio / Centro de Diagnóstico</label>
+            <input type="text" class="form-input" id="cita-res-laboratorio" placeholder="Ej: Laboratorio Clínico Dinámica" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cita-res-web">Página Web</label>
+            <input type="url" class="form-input" id="cita-res-web" placeholder="https://portal.laboratorio.com/resultados" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cita-res-correo">Correo</label>
+            <input type="email" class="form-input" id="cita-res-correo" placeholder="resultados@laboratorio.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cita-res-whatsapp">WhatsApp</label>
+            <input type="tel" class="form-input" id="cita-res-whatsapp" placeholder="Ej: 3001234567" />
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="cita-res-telefono">Teléfono</label>
+            <input type="text" class="form-input" id="cita-res-telefono" placeholder="Ej: (604) 4440000 ext 2" />
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="cita-res-pasos">Procedimiento / Pasos para consultar</label>
+            <textarea class="form-input form-textarea" id="cita-res-pasos" style="min-height: 110px;" placeholder="Paso 1: Entrar a la web&#10;Paso 2: Tipo de doc y cédula&#10;Paso 3: Clave es el número de orden en la tirilla física..."></textarea>
           </div>
         </div>
         <div class="form-actions">
           <button class="btn btn-secondary" id="btn-cancelar-cita">Cancelar</button>
-          <button class="btn btn-primary" id="btn-guardar-cita">💾 Guardar Cita</button>
+          <button class="btn btn-primary" id="btn-guardar-cita">💾 Guardar Cita y Resultados</button>
         </div>
       </div>
+
       <div id="lista-citas" class="meds-list"></div>
       <div id="empty-citas" class="empty-state">
         <div class="empty-icon">🩺</div>
@@ -568,7 +711,6 @@
         </div>
       </div>
 
-      <!-- Filtros de Consulta -->
       <div class="card" style="margin-bottom: 1.2rem; padding: 1rem;">
         <div class="form-grid">
           <div class="form-group">
@@ -630,7 +772,6 @@
         <h1 class="panel-title">💾 Gestión de Datos</h1>
       </div>
       <div class="datos-grid">
-        <!-- Exportar -->
         <div class="card datos-card">
           <div class="datos-icon">📤</div>
           <h2 class="card-title">Exportar Datos</h2>
@@ -643,7 +784,6 @@
           </button>
         </div>
 
-        <!-- Importar -->
         <div class="card datos-card">
           <div class="datos-icon">📥</div>
           <h2 class="card-title">Importar Datos</h2>
@@ -665,7 +805,6 @@
           </div>
         </div>
 
-        <!-- Información PWA -->
         <div class="card datos-card">
           <div class="datos-icon">📱</div>
           <h2 class="card-title">Instalar en Móvil</h2>
@@ -735,6 +874,6 @@
 
   <!-- Scripts externos (SheetJS para Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=3.5"></script>
+  <script src="app.js?v=3.7"></script>
 </body>
 </html>
