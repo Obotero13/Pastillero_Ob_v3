@@ -1,15 +1,15 @@
 // ============================================================
-// EL PASTILLERO Ob — Service Worker (sw.js v3.7)
+// EL PASTILLERO Ob — Service Worker (sw.js v3.8)
 // Estrategia Network-First: Actualizaciones inmediatas
 // ============================================================
 
-const CACHE_NAME = 'pastillero-v3.7';
+const CACHE_NAME = 'pastillero-v3.8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './styles.css?v=3.7',
-  './layout.css?v=3.7',
-  './app.js?v=3.7',
+  './styles.css?v=3.8',
+  './layout.css?v=3.8',
+  './app.js?v=3.8',
   './manifest.json'
 ];
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v3.7)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v4.0)
    ============================================================ */
 
 'use strict';
@@ -11,6 +11,7 @@ const APP = {
     medicamentos: [],    // [{id, pacienteId, nombre, concentracion, unidad, cantidad, stockMinimo, laboratorio, fechaRecepcion, proximaRecepcion, puntoEntregaId, notas}]
     dosis: [],           // [{id, pacienteId, medicamentoId, cantidadDia, frecuencia, intervaloDias, jornadas:[{jornada, hora}], notas}]
     puntosEntrega: [],   // [{id, nombre, direccion, telefonos, correo, web, observaciones}]
+    sitios: [],          // [{id, nombre, direccion, web, correo, telefono, whatsapp, servicio, fecha, horario, info}]
     citas: [],           // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones, resLab, resWeb, resCorreo, resWhatsapp, resTelefono, resPasos}]
     fechasEspeciales: [],// [{fecha:'YYYY-MM-DD', comentario}]
     registroTomas: {},   // {'YYYY-MM-DD': { 'dosisId_jornada': true }}
@@ -23,6 +24,7 @@ const APP = {
     editMedId: null,
     editDosisId: null,
     editPuntoId: null,
+    editSitioId: null,
     editCitaId: null,
     reabastecerMedId: null,
     calYear: new Date().getFullYear(),
@@ -39,7 +41,8 @@ const APP = {
   settings: {
     theme: 'green',
     mode: 'dark',
-    soundAlarm: true
+    soundAlarm: true,
+    alarmDurationSec: 5
   }
 };
 
@@ -85,6 +88,7 @@ const waLink = (num) => {
   return `<a href="https://wa.me/${esc(clean)}" target="_blank" rel="noopener" style="color:#25d366;font-weight:600;">📲 WhatsApp (${esc(num)})</a>`;
 };
 const detail = (icon, val, html) => val ? `<span class="med-detail-item">${icon} ${html || esc(val)}</span>` : '';
+const multilineDetail = (label, text) => text ? `<div class="med-details-multiline"><strong>${label}:</strong><br>${esc(text)}</div>` : '';
 
 // Isotipos SVG vectoriales compactos
 const WA_SVG = `<svg viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.54 1.769.814 2.791.814 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.768-5.77-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 4.418-3.582 8-8 8-1.42 0-2.753-.372-3.916-1.023l-4.115 1.078 1.096-4.011c-.722-1.206-1.065-2.58-1.065-4.044 0-4.418 3.582-8 8-8zm3.285 11.233c-.14-.07-.828-.408-.956-.455-.128-.047-.222-.07-.315.07-.094.14-.363.455-.445.549-.082.093-.164.105-.304.035-.14-.07-.591-.218-1.126-.695-.416-.371-.697-.83-.778-.97-.082-.14-.009-.215.061-.285.063-.062.14-.163.21-.245.07-.082.094-.14.14-.233.047-.094.023-.175-.012-.245-.035-.07-.315-.759-.432-1.039-.114-.273-.23-.236-.316-.24l-.27-.005c-.093 0-.245.035-.373.175-.128.14-.49.479-.49 1.168 0 .689.501 1.354.571 1.448.07.093.987 1.507 2.391 2.115.334.145.595.231.798.296.335.106.64.091.882.055.27-.04.828-.338.945-.666.117-.327.117-.607.082-.666-.035-.059-.128-.094-.268-.164z"/></svg>`;
@@ -133,6 +137,7 @@ function loadData() {
     if (raw) {
       const parsed = JSON.parse(raw);
       APP.data = { ...APP.data, ...parsed };
+      if (!APP.data.sitios) APP.data.sitios = [];
       if (!APP.data.registroTomas) APP.data.registroTomas = {};
     }
   } catch(e) { console.warn('Error cargando datos', e); }
@@ -145,7 +150,10 @@ function saveSettings() {
 function loadSettings() {
   try {
     const raw = localStorage.getItem('elpastillero_settings');
-    if (raw) APP.settings = { ...APP.settings, ...JSON.parse(raw) };
+    if (raw) {
+      APP.settings = { ...APP.settings, ...JSON.parse(raw) };
+      if (!APP.settings.alarmDurationSec) APP.settings.alarmDurationSec = 5;
+    }
   } catch(e) {}
 }
 
@@ -198,7 +206,7 @@ function checkDailyInventoryDeduction() {
   }
 }
 
-// ─── MONITOR DE ALARMA SONORA EN HORAS EXACTAS DE DOSIS ───────
+// ─── MONITOR DE ALARMA SONORA EN HORAS EXACTAS (HASTA 60s) ───
 let lastAlarmMinute = '';
 
 function checkScheduledDoseAlarms() {
@@ -225,25 +233,22 @@ function checkScheduledDoseAlarms() {
 
   if (medEncontrado) {
     lastAlarmMinute = currentHM;
+    const durSec = Math.min(60, Math.max(1, parseInt(APP.settings.alarmDurationSec, 10) || 5));
 
-    // 1. Tono acústico de alerta médica (5 segundos continuos)
-    playDoseAlarmTone();
+    playDoseAlarmTone(durSec);
 
-    // 2. Vibración rítmica en teléfonos móviles
     if ('vibrate' in navigator) {
-      navigator.vibrate([400, 200, 400, 200, 600, 200, 400, 200, 600]);
+      const vibPattern = [];
+      for (let s = 0; s < durSec; s++) vibPattern.push(500, 300);
+      navigator.vibrate(vibPattern);
     }
 
-    // 3. Notificación nativa del sistema (despierta pantalla de bloqueo)
     triggerSystemNotification(medEncontrado.nombre, currentHM, dosisEncontrada);
-
-    // 4. Toast visible dentro de la app
-    showToast(`⏰ ¡HORA DE TOMAR MEDICAMENTO! ${medEncontrado.nombre} (${currentHM}).`, 'warning', 8000);
+    showToast(`⏰ ¡HORA DE TOMAR MEDICAMENTO! ${medEncontrado.nombre} (${currentHM}). Alarma activa por ${durSec}s.`, 'warning', durSec * 1000);
   }
 }
 
-// Sonido llamativo de 5 segundos de duración (Beeper clínico de alerta)
-function playDoseAlarmTone() {
+function playDoseAlarmTone(durationSeconds = 5) {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
@@ -252,14 +257,12 @@ function playDoseAlarmTone() {
 
     const t = ctx.currentTime;
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.7, t); // Volumen óptimo y seguro
+    masterGain.gain.setValueAtTime(0.75, t);
     masterGain.connect(ctx.destination);
 
-    // 5 ciclos dobles de beeps a lo largo de 5 segundos (0s, 1s, 2s, 3s, 4s)
-    for (let i = 0; i < 5; i++) {
-      const startTime = t + (i * 1.0);
+    for (let i = 0; i < durationSeconds; i++) {
+      const startTime = t + i;
 
-      // Beep 1 (800 Hz)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sawtooth';
@@ -271,7 +274,6 @@ function playDoseAlarmTone() {
       osc1.start(startTime);
       osc1.stop(startTime + 0.22);
 
-      // Beep 2 (1050 Hz)
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sawtooth';
@@ -284,13 +286,12 @@ function playDoseAlarmTone() {
       osc2.stop(startTime + 0.52);
     }
   } catch(e) {
-    console.warn('AudioContext bloqueado o no disponible:', e);
+    console.warn('AudioContext no disponible:', e);
   }
 }
 
 function triggerSystemNotification(nombreMed, horaStr, dosis) {
   if (!('Notification' in window)) return;
-
   if (Notification.permission === 'granted') {
     try {
       new Notification('💊 EL PASTILLERO: ¡Hora de tu medicamento!', {
@@ -356,10 +357,10 @@ function renderAlertas() {
     cita: [],
     recepcion: [],
     stock: [],
-    especial: []
+    especial: [],
+    sitio: []
   };
 
-  // 1. Citas Médicas (HOY o MAÑANA)
   (APP.data.citas || []).forEach(ct => {
     if (!ct.fecha) return;
     const dias = daysDiff(ct.fecha);
@@ -371,7 +372,6 @@ function renderAlertas() {
     }
   });
 
-  // 2. Recepción de Medicamentos (0 a 7 días)
   (APP.data.medicamentos || []).forEach(med => {
     const dias = daysDiff(med.proximaRecepcion);
     if (dias >= 0 && dias <= 7) {
@@ -381,7 +381,6 @@ function renderAlertas() {
     }
   });
 
-  // 3. Fechas Especiales (HOY o MAÑANA)
   (APP.data.fechasEspeciales || []).forEach(fe => {
     if (!fe.fecha) return;
     const dias = daysDiff(fe.fecha);
@@ -391,7 +390,15 @@ function renderAlertas() {
     }
   });
 
-  // 4. Control de Inventario (Stock bajo o agotado)
+  (APP.data.sitios || []).forEach(st => {
+    if (!st.fecha) return;
+    const dias = daysDiff(st.fecha);
+    if (dias >= 0 && dias <= 1) {
+      const labelTiempo = dias === 0 ? 'HOY' : 'MAÑANA';
+      grupos.sitio.push(`🏢 <strong>SITIO PROGRAMADO ${labelTiempo}:</strong> Visita a <strong>${esc(st.nombre)}</strong> ${st.servicio ? `(${esc(st.servicio)})` : ''}.`);
+    }
+  });
+
   (APP.data.medicamentos || []).forEach(med => {
     const stockMin = med.stockMinimo !== undefined ? Number(med.stockMinimo) : 5;
     if (med.cantidad <= stockMin) {
@@ -402,7 +409,7 @@ function renderAlertas() {
     }
   });
 
-  const totalAlertas = grupos.cita.length + grupos.recepcion.length + grupos.stock.length + grupos.especial.length;
+  const totalAlertas = grupos.cita.length + grupos.recepcion.length + grupos.stock.length + grupos.especial.length + grupos.sitio.length;
 
   if (totalAlertas === 0) {
     container.style.display = 'none';
@@ -417,6 +424,7 @@ function renderAlertas() {
   const confCategorias = [
     { key: 'cita', icon: '🩺', label: 'Citas', class: 'chip-cita' },
     { key: 'recepcion', icon: '📆', label: 'Recepciones', class: 'chip-recepcion' },
+    { key: 'sitio', icon: '🏢', label: 'Sitios', class: 'chip-sitio' },
     { key: 'stock', icon: '⚠️', label: 'Stock Bajo', class: 'chip-stock' },
     { key: 'especial', icon: '⭐', label: 'Especiales', class: 'chip-especial' }
   ];
@@ -474,6 +482,11 @@ function applyThemeAndMode() {
     alarmBtn.querySelector('.alarm-icon').textContent = APP.settings.soundAlarm ? '🔔' : '🔕';
     alarmBtn.querySelector('.alarm-text').textContent = APP.settings.soundAlarm ? 'Alarma: ON' : 'Alarma: OFF';
   }
+
+  const lblDur = document.getElementById('lbl-duracion-alarma');
+  if (lblDur) {
+    lblDur.textContent = `${APP.settings.alarmDurationSec || 5}s`;
+  }
 }
 
 // ─── NAVEGACIÓN DE PESTAÑAS ───────────────────────────────────
@@ -491,6 +504,7 @@ function switchTab(tabId) {
 
   if (tabId === 'pacientes') renderPacientes();
   if (tabId === 'medicamentos') renderMedicamentos();
+  if (tabId === 'sitios') renderSitios();
   if (tabId === 'dosis') renderDosis();
   if (tabId === 'calendario') renderCalendar();
   if (tabId === 'consulta') { updateConsultaFiltros(); renderConsulta(); }
@@ -742,7 +756,7 @@ function exportarResumenPDF(pacienteId) {
                     <td><strong>${esc(med ? med.nombre : 'Medicamento')}</strong> (${med ? med.concentracion + med.unidad : ''})</td>
                     <td>${esc(getFrecuenciaTexto(d))}</td>
                     <td>${esc(jornadasStr)}</td>
-                    <td>${esc(d.notas || '—')}</td>
+                    <td style="white-space:pre-wrap;">${esc(d.notas || '—')}</td>
                   </tr>
                 `;
               }).join('')}
@@ -862,17 +876,17 @@ function renderMedicamentos() {
         <div class="med-name">
           💊 ${esc(med.nombre)}
           <span class="med-badge">${med.concentracion} ${med.unidad}</span>
-          ${near ? '<span style="color:#ff9800;font-size:0.8rem;">⏩ Recepción próxima</span>' : ''}
+          ${near ? '<span style="color:#00e676;font-size:0.8rem;font-weight:700;">⏩ Recepción próxima</span>' : ''}
           ${bajoStock ? `<span style="color:#ff5252;font-size:0.8rem;font-weight:700;">⚠️ Stock bajo (${med.cantidad})</span>` : ''}
         </div>
         <div class="med-details">
           <span class="med-detail-item">📦 Stock actual: <strong>${med.cantidad}</strong> (mín: ${stockMin})</span>
           ${med.laboratorio ? `<span class="med-detail-item">🏭 ${esc(med.laboratorio)}</span>` : ''}
           <span class="med-detail-item">📆 Recepción: <strong>${fmtDate(med.fechaRecepcion)}</strong></span>
-          <span class="med-detail-item">⏩ Próxima: <strong>${fmtDate(med.proximaRecepcion)}</strong>${near ? ` <span style="color:#ff9800">(${dias === 0 ? 'HOY' : dias + 'd'})</span>` : ''}</span>
+          <span class="med-detail-item">⏩ Próxima: <strong style="color:#00e676;">${fmtDate(med.proximaRecepcion)}</strong>${near ? ` <span style="color:#00e676">(${dias === 0 ? 'HOY' : dias + 'd'})</span>` : ''}</span>
           ${puntoNombre(med.puntoEntregaId) ? `<span class="med-detail-item">🏥 ${esc(puntoNombre(med.puntoEntregaId))}</span>` : ''}
-          ${med.notas ? `<span class="med-detail-item">📝 ${esc(med.notas.slice(0,50))}${med.notas.length>50?'...':''}</span>` : ''}
         </div>
+        ${multilineDetail('Notas del medicamento', med.notas)}
       </div>
       <div class="med-actions">
         <button class="btn btn-success btn-icon" data-action="reabastecer-med" data-id="${med.id}" title="Reabastecer stock (Llegó entrega)">📦 +</button>
@@ -1020,6 +1034,110 @@ async function eliminarMed(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// MÓDULO: OTROS SITIOS (ESTABLECIMIENTOS / PUNTOS DE INTERÉS)
+// ─────────────────────────────────────────────────────────────
+
+const SITIO_CAMPOS = ['nombre','direccion','web','correo','telefono','whatsapp','servicio','fecha','horario','info'];
+
+function renderSitios() {
+  const lista = document.getElementById('lista-sitios');
+  const empty = document.getElementById('empty-sitios');
+  lista.innerHTML = '';
+
+  if (!APP.data.sitios || APP.data.sitios.length === 0) {
+    lista.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  lista.style.display = 'flex';
+  empty.style.display = 'none';
+
+  APP.data.sitios.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'med-item';
+    item.innerHTML = `
+      <div class="med-info">
+        <div class="med-name">
+          🏢 ${esc(s.nombre || 'Sitio')}
+          ${s.servicio ? `<span class="med-badge">${esc(s.servicio)}</span>` : ''}
+          ${s.fecha ? `<span class="med-badge" style="background:rgba(41,121,255,0.15);color:#2979ff;">📆 ${fmtDate(s.fecha)}</span>` : ''}
+        </div>
+        <div class="med-details">
+          ${detail('📍', s.direccion)}
+          ${detail('📞', s.telefono)}
+          ${detail('📧', s.correo)}
+          ${detail('🌐', s.web, webLink(s.web))}
+          ${detail('📲', s.whatsapp, waLink(s.whatsapp))}
+        </div>
+        ${multilineDetail('Horario', s.horario)}
+        ${multilineDetail('Información Adicional', s.info)}
+      </div>
+      <div class="med-actions">
+        <button class="btn btn-secondary btn-icon" data-action="edit-sitio" data-id="${s.id}" title="Editar">✏️</button>
+        <button class="btn btn-danger btn-icon" data-action="del-sitio" data-id="${s.id}" title="Eliminar">🗑️</button>
+      </div>
+    `;
+    lista.appendChild(item);
+  });
+}
+
+function openFormSitio(id = null) {
+  APP.ui.editSitioId = id;
+  const s = id ? APP.data.sitios.find(x => x.id === id) : null;
+  document.getElementById('form-sitio-title').textContent = s ? 'Editar Sitio' : 'Nuevo Sitio / Establecimiento';
+  SITIO_CAMPOS.forEach(k => {
+    const el = document.getElementById('sitio-' + k);
+    if (el) el.value = s ? (s[k] || '') : '';
+  });
+  const card = document.getElementById('form-sitio-card');
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeFormSitio() {
+  document.getElementById('form-sitio-card').style.display = 'none';
+  APP.ui.editSitioId = null;
+}
+
+function guardarSitio() {
+  const nombre = document.getElementById('sitio-nombre').value.trim();
+  if (!nombre) { showToast('El nombre del sitio o establecimiento es obligatorio.', 'error'); return; }
+
+  const datos = {};
+  SITIO_CAMPOS.forEach(k => {
+    const el = document.getElementById('sitio-' + k);
+    datos[k] = el ? el.value.trim() : '';
+  });
+
+  if (APP.ui.editSitioId) {
+    const idx = APP.data.sitios.findIndex(x => x.id === APP.ui.editSitioId);
+    if (idx > -1) APP.data.sitios[idx] = { ...APP.data.sitios[idx], ...datos };
+    showToast('Sitio actualizado correctamente.', 'success');
+  } else {
+    APP.data.sitios.push({ id: genId(), ...datos });
+    showToast('Sitio guardado correctamente.', 'success');
+  }
+
+  saveData();
+  closeFormSitio();
+  renderSitios();
+  renderCalendar();
+  renderAlertas();
+}
+
+async function eliminarSitio(id) {
+  const ok = await confirmModal('Eliminar Sitio', '¿Deseas eliminar este sitio o establecimiento?');
+  if (!ok) return;
+  APP.data.sitios = APP.data.sitios.filter(x => x.id !== id);
+  saveData();
+  renderSitios();
+  renderCalendar();
+  renderAlertas();
+  showToast('Sitio eliminado.', 'info');
+}
+
+// ─────────────────────────────────────────────────────────────
 // MÓDULO: DOSIS, CHECKLIST DIARIO Y COMPARTIR WHATSAPP
 // ─────────────────────────────────────────────────────────────
 
@@ -1122,7 +1240,7 @@ function renderDosis() {
           <div class="${tomada ? 'toma-completada' : ''}">
             <div class="dosis-med-name">💊 ${esc(med.nombre)} <small style="color:var(--text-muted)">${med.concentracion}${med.unidad}</small></div>
             <div style="font-size:0.78rem;color:var(--accent);margin-top:2px;">Frecuencia: <strong>${esc(getFrecuenciaTexto(dosis))}</strong></div>
-            ${dosis.notas ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${esc(dosis.notas)}</div>` : ''}
+            ${dosis.notas ? multilineDetail('Instrucciones', dosis.notas) : ''}
           </div>
         </label>
         <div style="display:flex;align-items:center;gap:0.75rem;">
@@ -1183,7 +1301,7 @@ function compartirPlanWhatsApp() {
       texto += `*${iconJornada[j]}*\n`;
       jornadaMap[j].forEach(({ med, dosis, hora }) => {
         texto += `• ${med.nombre} ${med.concentracion}${med.unidad} (${hora || ''}): ${getFrecuenciaTexto(dosis)}`;
-        if (dosis.notas) texto += ` _[${dosis.notas}]_`;
+        if (dosis.notas) texto += `\n  _Instrucciones:_ ${dosis.notas}`;
         texto += `\n`;
       });
       texto += `\n`;
@@ -1310,7 +1428,7 @@ async function eliminarDosis(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: CALENDARIO
+// MÓDULO: CALENDARIO (VERDE FIJO EN RECEPCIÓN + AZUL EN SITIOS)
 // ─────────────────────────────────────────────────────────────
 
 function renderCalendar() {
@@ -1346,6 +1464,13 @@ function renderCalendar() {
     if (d.getFullYear() === year && d.getMonth() === month) citaDates.add(d.getDate());
   });
 
+  const sitioDates = new Set();
+  (APP.data.sitios || []).forEach(st => {
+    if (!st.fecha) return;
+    const d = new Date(st.fecha + 'T00:00:00');
+    if (d.getFullYear() === year && d.getMonth() === month) sitioDates.add(d.getDate());
+  });
+
   const today = new Date();
   const isCurrentMonthYear = today.getFullYear() === year && today.getMonth() === month;
   const todayDay = today.getDate();
@@ -1375,6 +1500,7 @@ function renderCalendar() {
     if (receptionDates.has(d)) cell.classList.add('has-reception');
     if (specialDates[d] !== undefined) cell.classList.add('has-special');
     if (citaDates.has(d)) cell.classList.add('has-cita');
+    if (sitioDates.has(d)) cell.classList.add('has-sitio');
 
     cell.setAttribute('role', 'gridcell');
     cell.setAttribute('aria-label', `${d} de ${MESES[month]}`);
@@ -1382,9 +1508,10 @@ function renderCalendar() {
 
     const dots = document.createElement('div');
     dots.className = 'cal-dots';
-    if (receptionDates.has(d)) dots.innerHTML += '<span class="cal-dot reception"></span>';
-    if (specialDates[d] !== undefined) dots.innerHTML += '<span class="cal-dot special"></span>';
-    if (citaDates.has(d)) dots.innerHTML += '<span class="cal-dot cita"></span>';
+    if (receptionDates.has(d)) dots.innerHTML += '<span class="cal-dot reception" title="Recepción"></span>';
+    if (specialDates[d] !== undefined) dots.innerHTML += '<span class="cal-dot special" title="Especial"></span>';
+    if (citaDates.has(d)) dots.innerHTML += '<span class="cal-dot cita" title="Cita médica"></span>';
+    if (sitioDates.has(d)) dots.innerHTML += '<span class="cal-dot sitio" title="Otro Sitio"></span>';
 
     cell.innerHTML = `<span>${d}</span>`;
     cell.appendChild(dots);
@@ -1412,8 +1539,9 @@ function openCalendarDay(dateStr, day) {
   const existing = APP.data.fechasEspeciales.find(f => f.fecha === dateStr);
   const medsEnFecha = APP.data.medicamentos.filter(m => m.proximaRecepcion === dateStr || m.fechaRecepcion === dateStr);
   const citasEnFecha = APP.data.citas.filter(ct => ct.fecha === dateStr && (!APP.ui.selPacienteCal || ct.pacienteId === APP.ui.selPacienteCal));
+  const sitiosEnFecha = (APP.data.sitios || []).filter(st => st.fecha === dateStr);
 
-  if (medsEnFecha.length > 0 || citasEnFecha.length > 0) {
+  if (medsEnFecha.length > 0 || citasEnFecha.length > 0 || sitiosEnFecha.length > 0) {
     const modal = document.getElementById('modal-dia-cal');
     const title = document.getElementById('modal-dia-title');
     const content = document.getElementById('modal-dia-content');
@@ -1424,15 +1552,25 @@ function openCalendarDay(dateStr, day) {
         ${medsEnFecha.map(m => {
           const pac = APP.data.pacientes.find(p => p.id === m.pacienteId);
           const tipo = m.proximaRecepcion === dateStr ? '⏩ Próxima recepción' : '📆 Recepción';
-          return `<div style="padding:0.4rem 0.6rem;background:var(--accent-muted);border-radius:6px;margin-bottom:0.3rem;font-size:0.83rem;">
+          return `<div style="padding:0.4rem 0.6rem;background:rgba(0,230,118,0.12);border-left:3px solid #00e676;border-radius:6px;margin-bottom:0.3rem;font-size:0.83rem;">
             <strong>${esc(m.nombre)} ${m.concentracion}${m.unidad}</strong>${pac ? ` — ${esc(pac.nombre)}` : ''}<br>
-            <span style="color:var(--accent)">${tipo}</span>
+            <span style="color:#00e676;font-weight:700;">${tipo}</span>
           </div>`;
         }).join('')}
       </div>
       ${citasEnFecha.length ? `<div style="margin-bottom:1rem;">
         <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.5rem;font-weight:600;">🩺 Citas médicas:</p>
         ${citasEnFecha.map(citaResumenHTML).join('')}
+      </div>` : ''}
+      ${sitiosEnFecha.length ? `<div style="margin-bottom:1rem;">
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.5rem;font-weight:600;">🏢 Otros Sitios / Visitas:</p>
+        ${sitiosEnFecha.map(st => `
+          <div style="padding:0.4rem 0.6rem;background:rgba(41,121,255,0.12);border-left:3px solid #2979ff;border-radius:6px;margin-bottom:0.3rem;font-size:0.83rem;">
+            <strong>${esc(st.nombre)}</strong> ${st.servicio ? `· ${esc(st.servicio)}` : ''}<br>
+            ${st.direccion ? `📍 ${esc(st.direccion)}<br>` : ''}
+            ${st.telefono ? `📞 ${esc(st.telefono)}` : ''}
+          </div>
+        `).join('')}
       </div>` : ''}
       ${existing ? `<div style="padding:0.6rem;background:rgba(255,152,0,0.1);border-radius:6px;border-left:3px solid #ff9800;font-size:0.83rem;margin-top:0.5rem;">⭐ <strong>Nota especial:</strong> ${esc(existing.comentario)}</div>` : ''}
       <div style="margin-top:1rem; text-align:right;">
@@ -1612,10 +1750,10 @@ function renderConsulta() {
       <td>${esc(row.laboratorio)}</td>
       <td>${esc(row.puntoEntrega)}</td>
       <td>${row.fechaRecepcion}</td>
-      <td style="${row.diasRestantes >= 0 && row.diasRestantes <= 7 ? 'color:#ff9800;font-weight:700;' : ''}">${row.proximaRecepcion}${row.diasRestantes >= 0 && row.diasRestantes <= 7 ? ` <small>(${row.diasRestantes === 0 ? 'HOY' : row.diasRestantes + 'd'})</small>` : ''}</td>
+      <td style="${row.diasRestantes >= 0 && row.diasRestantes <= 7 ? 'color:#00e676;font-weight:700;' : ''}">${row.proximaRecepcion}${row.diasRestantes >= 0 && row.diasRestantes <= 7 ? ` <small>(${row.diasRestantes === 0 ? 'HOY' : row.diasRestantes + 'd'})</small>` : ''}</td>
       <td>${esc(row.dosisDia)}</td>
       <td>${esc(row.jornadas)}</td>
-      <td style="max-width:150px;font-size:0.8rem;">${esc(row.notas)}</td>
+      <td style="max-width:150px;font-size:0.8rem;white-space:pre-wrap;">${esc(row.notas)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1627,7 +1765,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '3.7',
+    version: '4.0',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1659,6 +1797,7 @@ function importarJSON(file, mode) {
           dosis: incoming.dosis || [],
           fechasEspeciales: incoming.fechasEspeciales || [],
           puntosEntrega: incoming.puntosEntrega || [],
+          sitios: incoming.sitios || [],
           citas: incoming.citas || [],
           registroTomas: incoming.registroTomas || {},
           lastInventoryDate: incoming.lastInventoryDate || todayStr()
@@ -1675,6 +1814,7 @@ function importarJSON(file, mode) {
         APP.data.dosis = mergeArr(APP.data.dosis, incoming.dosis);
         APP.data.fechasEspeciales = mergeArr(APP.data.fechasEspeciales, incoming.fechasEspeciales);
         APP.data.puntosEntrega = mergeArr(APP.data.puntosEntrega, incoming.puntosEntrega);
+        APP.data.sitios = mergeArr(APP.data.sitios, incoming.sitios);
         APP.data.citas = mergeArr(APP.data.citas, incoming.citas);
         APP.data.registroTomas = { ...(APP.data.registroTomas || {}), ...(incoming.registroTomas || {}) };
         showToast(`Datos fusionados correctamente.`, 'success');
@@ -1728,7 +1868,7 @@ let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.7').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=4.0').then(reg => {
       reg.update();
     }).catch(() => {});
 
@@ -1795,8 +1935,9 @@ function renderPuntos() {
       <div class="med-info">
         <div class="med-name">🏥 ${esc(p.nombre || 'Punto sin nombre')}</div>
         <div class="med-details">
-          ${detail('📍', p.direccion)}${detail('📞', p.telefonos)}${detail('📧', p.correo)}${detail('🌐', p.web, webLink(p.web))}${detail('📝', p.observaciones)}
+          ${detail('📍', p.direccion)}${detail('📞', p.telefonos)}${detail('📧', p.correo)}${detail('🌐', p.web, webLink(p.web))}
         </div>
+        ${multilineDetail('Observaciones / Horario', p.observaciones)}
       </div>
       <div class="med-actions">
         <button class="btn btn-secondary btn-icon" data-action="edit-punto" data-id="${p.id}" title="Editar">✏️</button>
@@ -1880,8 +2021,9 @@ function renderCitas() {
           ${urgente ? `<span style="color:#2196f3;font-size:0.8rem;font-weight:700;">${dias === 0 ? '¡HOY!' : '¡MAÑANA!'}</span>` : ''}
         </div>
         <div class="med-details">
-          ${detail('🤵', pac ? pac.nombre : '')}${detail('👨‍⚕️', ct.profesional)}${detail('🏥', ct.lugar)}${detail('📍', ct.direccion)}${detail('📞', ct.telefonos)}${detail('📧', ct.correo)}${detail('🌐', ct.web, webLink(ct.web))}${detail('📝', ct.observaciones)}
+          ${detail('🤵', pac ? pac.nombre : '')}${detail('👨‍⚕️', ct.profesional)}${detail('🏥', ct.lugar)}${detail('📍', ct.direccion)}${detail('📞', ct.telefonos)}${detail('📧', ct.correo)}${detail('🌐', ct.web, webLink(ct.web))}
         </div>
+        ${multilineDetail('Preparación / Indicaciones de la Cita', ct.observaciones)}
 
         ${tieneResultados ? `
           <div class="cita-resultados-box">
@@ -1889,7 +2031,7 @@ function renderCitas() {
             <div class="med-details" style="margin-top:0.25rem;">
               ${detail('🏢', ct.resLab)}${detail('🌐', ct.resWeb, webLink(ct.resWeb))}${detail('📧', ct.resCorreo)}${detail('📲', ct.resWhatsapp, waLink(ct.resWhatsapp))}${detail('📞', ct.resTelefono)}
             </div>
-            ${ct.resPasos ? `<div style="font-size:0.78rem;margin-top:0.4rem;white-space:pre-wrap;background:rgba(0,0,0,0.05);padding:0.4rem;border-radius:4px;"><strong>Pasos:</strong><br>${esc(ct.resPasos)}</div>` : ''}
+            ${ct.resPasos ? `<div class="med-details-multiline" style="border-left-color:#2196f3;"><strong>Procedimiento / Pasos para consultar:</strong><br>${esc(ct.resPasos)}</div>` : ''}
           </div>
         ` : ''}
       </div>
@@ -1917,7 +2059,7 @@ function compartirCitaWhatsApp(citaId) {
   if (ct.lugar) msg += `🏥 *Lugar:* ${ct.lugar}\n`;
   if (ct.direccion) msg += `📍 *Dirección:* ${ct.direccion}\n`;
   if (ct.telefonos) msg += `📞 *Teléfono:* ${ct.telefonos}\n`;
-  if (ct.observaciones) msg += `\n📝 *Indicaciones:* ${ct.observaciones}\n`;
+  if (ct.observaciones) msg += `\n📝 *Indicaciones:*\n${ct.observaciones}\n`;
 
   if (ct.resLab || ct.resWeb || ct.resWhatsapp || ct.resPasos) {
     msg += `\n*🧪 RESULTADOS DE EXÁMENES:*\n`;
@@ -1925,7 +2067,7 @@ function compartirCitaWhatsApp(citaId) {
     if (ct.resWeb) msg += `🌐 *Portal Web:* ${ct.resWeb}\n`;
     if (ct.resWhatsapp) msg += `📲 *WhatsApp:* ${ct.resWhatsapp}\n`;
     if (ct.resTelefono) msg += `📞 *Tel:* ${ct.resTelefono}\n`;
-    if (ct.resPasos) msg += `📋 *Pasos:* ${ct.resPasos}\n`;
+    if (ct.resPasos) msg += `📋 *Pasos:*\n${ct.resPasos}\n`;
   }
 
   const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -2096,17 +2238,35 @@ function initEventListeners() {
     saveSettings();
 
     if (APP.settings.soundAlarm) {
-      // Solicita permiso nativo para vibración y notificaciones si aún no se tiene
       if ('Notification' in window && Notification.permission !== 'granted') {
         try { await Notification.requestPermission(); } catch(e) {}
       }
-
-      // Prueba auditiva de 1 segundo para confirmar al usuario que funciona
-      playDoseAlarmTone();
+      playDoseAlarmTone(2);
       showToast('🔔 Alarma sonora y vibración activadas.', 'info', 3000);
     } else {
       showToast('🔕 Alarma sonora desactivada.', 'warning', 2500);
     }
+  });
+
+  // Modal para configurar la duración de la alarma
+  document.getElementById('btn-config-alarm').addEventListener('click', () => {
+    document.getElementById('alarm-duration-input').value = APP.settings.alarmDurationSec || 5;
+    document.getElementById('modal-config-alarm').style.display = 'flex';
+  });
+  document.getElementById('btn-cancelar-config-alarm').addEventListener('click', () => {
+    document.getElementById('modal-config-alarm').style.display = 'none';
+  });
+  document.getElementById('btn-guardar-config-alarm').addEventListener('click', () => {
+    const val = parseInt(document.getElementById('alarm-duration-input').value, 10);
+    if (isNaN(val) || val < 1 || val > 60) {
+      showToast('Por favor digita un número de segundos entre 1 y 60.', 'warning');
+      return;
+    }
+    APP.settings.alarmDurationSec = val;
+    saveSettings();
+    applyThemeAndMode();
+    document.getElementById('modal-config-alarm').style.display = 'none';
+    showToast(`⏱️ Duración de alarma establecida en ${val} segundos.`, 'success');
   });
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2149,6 +2309,16 @@ function initEventListeners() {
     document.getElementById('modal-reabastecer').style.display = 'none';
   });
   document.getElementById('btn-guardar-reabastecer').addEventListener('click', guardarReabastecimiento);
+
+  // OTROS SITIOS
+  document.getElementById('btn-nuevo-sitio').addEventListener('click', () => openFormSitio());
+  document.getElementById('btn-cancelar-sitio').addEventListener('click', closeFormSitio);
+  document.getElementById('btn-guardar-sitio').addEventListener('click', guardarSitio);
+  document.getElementById('lista-sitios').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-action]'); if (!b) return;
+    if (b.dataset.action === 'edit-sitio') openFormSitio(b.dataset.id);
+    if (b.dataset.action === 'del-sitio') eliminarSitio(b.dataset.id);
+  });
 
   // DOSIS Y FRECUENCIA
   document.getElementById('sel-paciente-dosis').addEventListener('change', (e) => {
@@ -2322,12 +2492,12 @@ function init() {
   renderAlertas();
   initPWA();
 
-  // Verifica cambios de hora / alarmas sonoras cada 20 segundos
+  // Monitorea cambios de hora y alarmas cada 15 segundos
   setInterval(() => {
     checkDailyInventoryDeduction();
     checkScheduledDoseAlarms();
     renderAlertas();
-  }, 20 * 1000);
+  }, 15 * 1000);
 
   if (APP.data.pacientes.length === 0) {
     setTimeout(() => {

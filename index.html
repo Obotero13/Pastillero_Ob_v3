@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3.7" />
-  <link rel="stylesheet" href="layout.css?v=3.7" />
+  <link rel="stylesheet" href="styles.css?v=4.0" />
+  <link rel="stylesheet" href="layout.css?v=4.0" />
   <style>
     /* ─── BARRA DE ALERTAS COMPACTA Y COLAPSABLE ─── */
     .alerts-container {
@@ -43,16 +43,13 @@
       color: var(--text-primary);
       transition: all 0.2s ease;
     }
-    .alert-chip-btn:hover {
-      filter: brightness(1.1);
-    }
-    .alert-chip-btn.active {
-      box-shadow: 0 0 0 2px var(--accent);
-    }
+    .alert-chip-btn:hover { filter: brightness(1.1); }
+    .alert-chip-btn.active { box-shadow: 0 0 0 2px var(--accent); }
     .chip-cita { border-color: #2196f3; color: #2196f3; }
-    .chip-recepcion { border-color: #ff9800; color: #ff9800; }
+    .chip-recepcion { border-color: #00e676; color: #00e676; }
     .chip-stock { border-color: #f44336; color: #f44336; }
     .chip-especial { border-color: #9e9e9e; color: #9e9e9e; }
+    .chip-sitio { border-color: #2979ff; color: #2979ff; }
 
     .alerts-dropdown-panel {
       max-height: 240px;
@@ -75,7 +72,21 @@
       border-left: 4px solid #757575;
     }
 
-    /* ─── SECCIÓN SEPARADA PARA RESULTADOS EN CITAS ─── */
+    /* ─── PRESERVACIÓN DE RENGLONES INDEPENDIENTES ─── */
+    .med-details-multiline {
+      white-space: pre-wrap !important;
+      word-break: break-word;
+      line-height: 1.45;
+      margin-top: 0.35rem;
+      display: block;
+      background: rgba(0,0,0,0.03);
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+      font-size: 0.82rem;
+    }
+
+    /* ─── SECCIÓN DE RESULTADOS EN CITAS ─── */
     .form-section-divider {
       grid-column: 1 / -1;
       margin: 1.2rem 0 0.4rem 0;
@@ -111,11 +122,16 @@
       gap: 0.4rem;
     }
 
-    /* ─── BOTÓN DE ALARMA SONORA EN HEADER ─── */
-    .alarm-toggle-btn {
+    /* ─── BOTONES Y CONTROLES DE ALARMA ─── */
+    .alarm-group-header {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
+    }
+    .alarm-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       padding: 0.4rem 0.75rem;
       border-radius: 20px;
       font-size: 0.8rem;
@@ -131,8 +147,17 @@
       border-color: #4caf50;
       color: #4caf50;
     }
+    .alarm-duration-btn {
+      padding: 0.4rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
 
-    /* Íconos vectoriales SVG en botones de acción */
+    /* Íconos vectoriales SVG */
     .btn-icon svg {
       width: 17px;
       height: 17px;
@@ -154,17 +179,13 @@
       color: #ffffff !important;
       border: none !important;
     }
-    .btn-whatsapp:hover {
-      background-color: #20bd5a !important;
-    }
+    .btn-whatsapp:hover { background-color: #20bd5a !important; }
     .btn-gcal {
       background-color: #4285F4 !important;
       color: #ffffff !important;
       border: none !important;
     }
-    .btn-gcal:hover {
-      background-color: #3367d6 !important;
-    }
+    .btn-gcal:hover { background-color: #3367d6 !important; }
     .checklist-wrap {
       display: flex;
       align-items: center;
@@ -205,11 +226,16 @@
       </div>
     </div>
     <div class="header-right">
-      <!-- Interruptor de alarma sonora de toma de pastillas -->
-      <button class="alarm-toggle-btn active" id="btn-sound-alarm" title="Activar/Desactivar alarma sonora para las dosis">
-        <span class="alarm-icon">🔔</span>
-        <span class="alarm-text">Alarma: ON</span>
-      </button>
+      <!-- Interruptor y ajuste de duración de alarma sonora -->
+      <div class="alarm-group-header">
+        <button class="alarm-toggle-btn active" id="btn-sound-alarm" title="Activar/Desactivar alarma sonora para las dosis">
+          <span class="alarm-icon">🔔</span>
+          <span class="alarm-text">Alarma: ON</span>
+        </button>
+        <button class="alarm-duration-btn" id="btn-config-alarm" title="Configurar duración de la alarma (hasta 60s)">
+          ⏱️ <span id="lbl-duracion-alarma">5s</span>
+        </button>
+      </div>
 
       <!-- Selector de tema de color -->
       <div class="theme-selector" id="theme-selector">
@@ -246,6 +272,9 @@
     </button>
     <button class="tab-btn" data-tab="puntos" id="tab-puntos" aria-selected="false">
       <span class="tab-icon">🏥</span><span class="tab-label">Puntos Entrega</span>
+    </button>
+    <button class="tab-btn" data-tab="sitios" id="tab-sitios" aria-selected="false">
+      <span class="tab-icon">🏢</span><span class="tab-label">Otros Sitios</span>
     </button>
     <button class="tab-btn" data-tab="dosis" id="tab-dosis" aria-selected="false">
       <span class="tab-icon">⏰</span><span class="tab-label">Dosis</span>
@@ -403,7 +432,7 @@
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="med-notas">Notas del medicamento</label>
-            <textarea class="form-input form-textarea" id="med-notas" placeholder="Indicaciones, advertencias, contraindicaciones, etc."></textarea>
+            <textarea class="form-input form-textarea" id="med-notas" style="min-height:95px;" placeholder="Tomar junto con el desayuno&#10;No fraccionar las tabletas&#10;Consultar al médico si hay molestia estomacal..."></textarea>
           </div>
         </div>
         <div class="form-actions">
@@ -452,7 +481,7 @@
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="pun-observaciones">Observaciones / Horario</label>
-            <textarea class="form-input form-textarea" id="pun-observaciones" placeholder="Horario de atención, ventanilla preferencial, etc."></textarea>
+            <textarea class="form-input form-textarea" id="pun-observaciones" style="min-height:95px;" placeholder="Lunes a Viernes: 7:00 am - 5:00 pm&#10;Sábados: 8:00 am - 1:00 pm&#10;Llevar documento original y fórmula vigente..."></textarea>
           </div>
         </div>
         <div class="form-actions">
@@ -464,6 +493,70 @@
       <div id="empty-puntos" class="empty-state">
         <div class="empty-icon">🏥</div>
         <p>No hay puntos de entrega registrados.<br>Haz clic en <strong>"+ Nuevo Punto"</strong>.</p>
+      </div>
+    </section>
+
+    <!-- TAB: OTROS SITIOS -->
+    <section class="tab-panel" id="panel-sitios" role="tabpanel" aria-labelledby="tab-sitios">
+      <div class="panel-header">
+        <h1 class="panel-title">🏢 Otros Sitios y Establecimientos</h1>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btn-nuevo-sitio"><span>+</span> Nuevo Sitio</button>
+        </div>
+      </div>
+      <div class="card form-card" id="form-sitio-card" style="display:none;">
+        <h2 class="card-title" id="form-sitio-title">Nuevo Sitio</h2>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label" for="sitio-nombre">Sitio / Establecimiento *</label>
+            <input type="text" class="form-input" id="sitio-nombre" placeholder="Ej: Centro Radiológico, Consultorio Particular, Óptica..." required />
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="sitio-direccion">Dirección</label>
+            <input type="text" class="form-input" id="sitio-direccion" placeholder="Ej: Carrera 43A # 1-50 Torre Médica" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sitio-web">Sitio Web</label>
+            <input type="url" class="form-input" id="sitio-web" placeholder="https://" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sitio-correo">Correo Electrónico</label>
+            <input type="email" class="form-input" id="sitio-correo" placeholder="contacto@sitio.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sitio-telefono">Teléfono</label>
+            <input type="text" class="form-input" id="sitio-telefono" placeholder="Ej: (604) ... / 300 ..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sitio-whatsapp">WhatsApp</label>
+            <input type="tel" class="form-input" id="sitio-whatsapp" placeholder="Ej: 3001234567" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sitio-servicio">Servicio</label>
+            <input type="text" class="form-input" id="sitio-servicio" placeholder="Ej: Tomografías, Fisioterapia, Exámenes..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sitio-fecha">Fecha Programada / Visita</label>
+            <input type="date" class="form-input" id="sitio-fecha" />
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="sitio-horario">Horario</label>
+            <textarea class="form-input form-textarea" id="sitio-horario" placeholder="Lunes a Viernes: 6:30 am - 7:00 pm&#10;Sábados jornada continua..."></textarea>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="sitio-info">Información Adicional</label>
+            <textarea class="form-input form-textarea" id="sitio-info" style="min-height:95px;" placeholder="Parqueadero en sótano 1&#10;Código de reserva: #1234&#10;Llevar ropa deportiva para la sesión..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="btn-cancelar-sitio">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-sitio">💾 Guardar Sitio</button>
+        </div>
+      </div>
+      <div id="lista-sitios" class="meds-list"></div>
+      <div id="empty-sitios" class="empty-state">
+        <div class="empty-icon">🏢</div>
+        <p>No hay otros sitios o establecimientos registrados.<br>Haz clic en <strong>"+ Nuevo Sitio"</strong>.</p>
       </div>
     </section>
 
@@ -531,7 +624,7 @@
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="dosis-notas">Instrucciones especiales</label>
-            <textarea class="form-input form-textarea" id="dosis-notas" placeholder="Ej: Tomar los lunes en ayunas, con abundante agua, etc."></textarea>
+            <textarea class="form-input form-textarea" id="dosis-notas" style="min-height:95px;" placeholder="Tomar en ayunas con abundante agua&#10;No consumir lácteos 2 horas antes&#10;Suspender si presenta mareo leve..."></textarea>
           </div>
         </div>
         <div class="form-actions">
@@ -571,9 +664,10 @@
           <div class="cal-day-header">Sáb</div>
         </div>
         <div class="calendar-legend">
-          <span class="legend-item"><span class="legend-dot reception"></span> Recepción medicamento</span>
-          <span class="legend-item"><span class="legend-dot special"></span> Fecha especial</span>
-          <span class="legend-item"><span class="legend-dot cita"></span> Cita médica</span>
+          <span class="legend-item"><span class="legend-dot reception"></span> Recepción (Verde)</span>
+          <span class="legend-item"><span class="legend-dot special"></span> Fecha especial (Gris)</span>
+          <span class="legend-item"><span class="legend-dot cita"></span> Cita médica (Naranja)</span>
+          <span class="legend-item"><span class="legend-dot sitio"></span> Otros Sitios (Azul)</span>
           <span class="legend-item"><span class="legend-dot today"></span> Hoy</span>
         </div>
       </div>
@@ -595,7 +689,7 @@
       </div>
     </section>
 
-    <!-- TAB: CITAS MÉDICAS (CON SECCIÓN DE RESULTADOS) -->
+    <!-- TAB: CITAS MÉDICAS (CON RESULTADOS) -->
     <section class="tab-panel" id="panel-citas" role="tabpanel" aria-labelledby="tab-citas">
       <div class="panel-header">
         <h1 class="panel-title">🩺 Citas Médicas y Resultados</h1>
@@ -650,10 +744,10 @@
           </div>
           <div class="form-group full-width">
             <label class="form-label" for="cita-observaciones">Preparación / Indicaciones de la Cita</label>
-            <textarea class="form-input form-textarea" id="cita-observaciones" placeholder="Ayuno de 8 horas, llevar historia clínica..."></textarea>
+            <textarea class="form-input form-textarea" id="cita-observaciones" style="min-height:95px;" placeholder="Ayuno de 8 horas estrictas&#10;Llevar exámenes recientes en carpeta física&#10;Presentarse 20 minutos antes en ventanilla 3..."></textarea>
           </div>
 
-          <!-- PARTE 2: CONSULTA DE RESULTADOS (SEPARADA Y CLARA) -->
+          <!-- PARTE 2: CONSULTA DE RESULTADOS -->
           <div class="form-section-divider">
             <div class="form-section-title">🧪 Consulta de Resultados de Exámenes / Ayudas</div>
             <div class="form-section-desc">Ingresa aquí los accesos, portales o teléfonos donde reclamar o descargar los resultados médicos.</div>
@@ -664,19 +758,19 @@
             <input type="text" class="form-input" id="cita-res-laboratorio" placeholder="Ej: Laboratorio Clínico Dinámica" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="cita-res-web">Página Web</label>
+            <label class="form-label" for="cita-res-web">Página Web de Resultados</label>
             <input type="url" class="form-input" id="cita-res-web" placeholder="https://portal.laboratorio.com/resultados" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="cita-res-correo">Correo</label>
+            <label class="form-label" for="cita-res-correo">Correo para solicitar resultados</label>
             <input type="email" class="form-input" id="cita-res-correo" placeholder="resultados@laboratorio.com" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="cita-res-whatsapp">WhatsApp</label>
+            <label class="form-label" for="cita-res-whatsapp">WhatsApp de Resultados</label>
             <input type="tel" class="form-input" id="cita-res-whatsapp" placeholder="Ej: 3001234567" />
           </div>
           <div class="form-group full-width">
-            <label class="form-label" for="cita-res-telefono">Teléfono</label>
+            <label class="form-label" for="cita-res-telefono">Teléfono directo de Resultados</label>
             <input type="text" class="form-input" id="cita-res-telefono" placeholder="Ej: (604) 4440000 ext 2" />
           </div>
           <div class="form-group full-width">
@@ -824,6 +918,24 @@
 
   </main>
 
+  <!-- MODAL CONFIGURACIÓN DURACIÓN ALARMA -->
+  <div class="modal-overlay" id="modal-config-alarm" style="display:none;">
+    <div class="modal-card modal-small">
+      <h3 class="modal-title">⏱️ Duración de la Alarma</h3>
+      <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom: 0.8rem;">
+        Digita los segundos que durará el sonido continuo y la vibración al llegar la hora de toma de medicamentos (máximo 60 segundos).
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="alarm-duration-input">Segundos de duración (1 a 60):</label>
+        <input type="number" class="form-input" id="alarm-duration-input" min="1" max="60" value="5" required />
+      </div>
+      <div class="form-actions" style="margin-top:1rem;">
+        <button class="btn btn-secondary" id="btn-cancelar-config-alarm">Cancelar</button>
+        <button class="btn btn-primary" id="btn-guardar-config-alarm">💾 Guardar Tiempo</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL RÁPIDO DE REABASTECIMIENTO -->
   <div class="modal-overlay" id="modal-reabastecer" style="display:none;">
     <div class="modal-card modal-small">
@@ -874,6 +986,6 @@
 
   <!-- Scripts externos (SheetJS para Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=3.7"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>

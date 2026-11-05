@@ -1,6 +1,6 @@
 /* ============================================================
-   EL PASTILLERO Ob — CSS Principal (v3.0)
-   Variables, Temas, Ajuste de Modos y PDF
+   EL PASTILLERO Ob — CSS Principal (v3.9)
+   Variables, Temas, Ajuste de Modos, Calendario y PDF
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
@@ -258,7 +258,8 @@ body {
   background: linear-gradient(90deg, #1976d2, #0288d1);
 }
 .alert-item.alert-recepcion {
-  background: linear-gradient(90deg, #f57c00, #ef6c00);
+  background: linear-gradient(90deg, #00c853, #00e676);
+  color: #000;
 }
 .alert-item.alert-stock {
   background: linear-gradient(90deg, #d32f2f, #c2185b);
@@ -268,7 +269,7 @@ body {
   to   { transform: translateY(0); opacity: 1; }
 }
 
-/* ─── NAVEGACIÓN DE PESTAÑAS Y CORRECCIÓN DE ICONOS ─── */
+/* ─── NAVEGACIÓN DE PESTAÑAS ─── */
 .tab-nav {
   position: sticky; top: var(--header-height); left: 0; right: 0;
   background: var(--bg-nav); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -278,8 +279,8 @@ body {
 .tab-nav::-webkit-scrollbar { display: none; }
 
 .tab-btn {
-  flex: 1; min-width: 80px; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 4px; padding: 0.55rem 0.4rem; border: none;
+  flex: 1; min-width: 76px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 4px; padding: 0.55rem 0.35rem; border: none;
   background: transparent; color: var(--text-secondary); cursor: pointer;
   font-family: var(--font-main); font-size: 0.72rem; font-weight: 600;
   transition: var(--transition); position: relative; white-space: nowrap;
@@ -291,7 +292,6 @@ body {
   transition: transform 0.3s ease;
 }
 
-/* Contenedor distintivo para garantizar visibilidad del icono en cualquier modo */
 .tab-icon {
   font-size: 1.15rem;
   width: 34px; height: 34px;
@@ -420,7 +420,6 @@ body {
   font-size: 0.9rem; outline: none; transition: var(--transition); width: 100%;
 }
 
-/* ─── CORRECCIÓN DE MENÚS DESPLEGABLES (1 SOLA FLECHA Y TEXTO LEGIBLE) ─── */
 .form-select {
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -437,7 +436,6 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1.5 1.75L6 6.25L10.5 1.75' stroke='%231a1a2e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-/* Opciones desplegables legibles de forma permanente sin importar el modo */
 body.mode-dark select,
 body.mode-dark option {
   background-color: #0f2b19 !important;
@@ -513,7 +511,7 @@ body.mode-light option {
   position: absolute; top: 0.75rem; right: 0.75rem; display: flex; gap: 0.4rem;
 }
 
-/* ─── LISTAS DE ITEMS (MEDICAMENTOS, PUNTOS, CITAS) ─── */
+/* ─── LISTAS DE ITEMS (MEDICAMENTOS, PUNTOS, CITAS, SITIOS) ─── */
 .meds-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .med-item {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
@@ -525,7 +523,7 @@ body.mode-light option {
   box-shadow: var(--shadow-sm), -4px 0 0 var(--accent);
 }
 .med-item.near-expiry {
-  border-color: rgba(255,152,0,0.5); background: rgba(255,152,0,0.05);
+  border-color: rgba(0, 230, 118, 0.5); background: rgba(0, 230, 118, 0.05);
 }
 .med-info { flex: 1; min-width: 200px; }
 .med-name {
@@ -569,7 +567,7 @@ body.mode-light option {
 }
 .check-label input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
 
-/* ─── CALENDARIO ─── */
+/* ─── CALENDARIO: EFECTOS DE SOMBRA INFERIOR Y COLORES RESPECTIVOS ─── */
 .calendar-card { max-width: 700px; margin: 0 auto; }
 .calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
 .cal-month-title { font-size: 1.2rem; font-weight: 700; color: var(--accent); text-transform: capitalize; }
@@ -594,25 +592,58 @@ body.mode-light option {
 .cal-day.today {
   background: rgba(var(--accent-rgb), 0.2); border-color: var(--accent); color: var(--accent); font-weight: 800;
 }
-.cal-day.has-reception { background: rgba(var(--accent-rgb), 0.12); }
-.cal-day.has-special { background: rgba(128,128,128,0.3); }
-.cal-day.has-special { box-shadow: inset 0 -3px 0 		#a9a9a9f3; }
-.cal-day.has-cita { background: rgba(255,152,0,0.2); }
-.cal-day.has-cita { box-shadow: inset 0 -3px 0 		#ff9800f3; }
+
+/* 1. Recepción de Medicamentos: Verde puro permanente con sombra inferior */
+.cal-day.has-reception {
+  background: rgba(0, 230, 118, 0.16) !important;
+  box-shadow: inset 0 -3px 0 #00e676 !important;
+}
+body.mode-light .cal-day.has-reception {
+  background: rgba(0, 168, 84, 0.14) !important;
+  box-shadow: inset 0 -3px 0 #00a854 !important;
+}
+
+/* 2. Fechas Especiales: Gris permanente con sombra inferior */
+.cal-day.has-special {
+  background: rgba(169, 169, 169, 0.22);
+  box-shadow: inset 0 -3px 0 #a9a9a9f3;
+}
+
+/* 3. Citas Médicas: Naranja permanente con sombra inferior */
+.cal-day.has-cita {
+  background: rgba(255, 152, 0, 0.2);
+  box-shadow: inset 0 -3px 0 #ff9800f3;
+}
+
+/* 4. Otros Sitios: Azul permanente con sombra inferior */
+.cal-day.has-sitio {
+  background: rgba(41, 121, 255, 0.2) !important;
+  box-shadow: inset 0 -3px 0 #2979ff !important;
+}
+body.mode-light .cal-day.has-sitio {
+  background: rgba(41, 121, 255, 0.14) !important;
+  box-shadow: inset 0 -3px 0 #1565c0 !important;
+}
+
 .cal-day.other-month { color: var(--text-muted); opacity: 0.4; }
 .cal-dots { display: flex; gap: 2px; position: absolute; bottom: 3px; }
 .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
-.cal-dot.reception { background: var(--accent); }
+.cal-dot.reception { background: #00e676 !important; }
+body.mode-light .cal-dot.reception { background: #00a854 !important; }
 .cal-dot.special { background: #a9a9a9f3; }
 .cal-dot.cita { background: #ff9800f3; }
+.cal-dot.sitio { background: #2979ff !important; }
+
 .calendar-legend {
   display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; justify-content: center;
 }
 .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-secondary); }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-.legend-dot.reception { background: var(--accent); }
-.legend-dot.special { background: #a9a9a9f3}
+.legend-dot.reception { background: #00e676 !important; }
+body.mode-light .legend-dot.reception { background: #00a854 !important; }
+.legend-dot.special { background: #a9a9a9f3; }
 .legend-dot.cita { background: #ff9800f3; }
+.legend-dot.sitio { background: #2979ff !important; }
 .legend-dot.today { background: var(--accent); border: 2px solid var(--text-primary); }
 
 /* ─── TABLA DE CONSULTA ─── */
@@ -731,14 +762,13 @@ body.mode-light option {
   display: none !important;
 }
 
-/* ─── CORRECCIÓN CRÍTICA DE IMPRESIÓN Y PDF (1 SOLA HOJA, FONDO LIMPIO) ─── */
+/* ─── IMPRESIÓN Y PDF ─── */
 @media print {
   @page {
     size: A4 portrait;
     margin: 8mm 10mm;
   }
 
-  /* Forzar fondo blanco y eliminar fondos oscuros heredados */
   html, body {
     background: #ffffff !important;
     background-color: #ffffff !important;
@@ -750,9 +780,9 @@ body.mode-light option {
     overflow: visible !important;
   }
 
-  /* Ocultar ABSOLUTAMENTE toda la interfaz de la aplicación */
   .bg-orbs,
   .app-header,
+  .alerts-container,
   .alerts-bar,
   .tab-nav,
   .main-content,
@@ -761,7 +791,6 @@ body.mode-light option {
     display: none !important;
   }
 
-  /* Mostrar exclusivamente el contenido del PDF */
   #print-pdf-area {
     display: block !important;
     position: static !important;
@@ -867,4 +896,3 @@ body.mode-light option {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-accent); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
