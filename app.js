@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v4.0)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v4.1)
    ============================================================ */
 
 'use strict';
@@ -45,6 +45,8 @@ const APP = {
     alarmDurationSec: 5
   }
 };
+
+let swRegistration = null;
 
 // ─── INTERACCIÓN DE USUARIO PARA AUDIO ──────────────────────
 let userInteracted = false;
@@ -235,15 +237,20 @@ function checkScheduledDoseAlarms() {
     lastAlarmMinute = currentHM;
     const durSec = Math.min(60, Math.max(1, parseInt(APP.settings.alarmDurationSec, 10) || 5));
 
+    // 1. Sonido potente repetido
     playDoseAlarmTone(durSec);
 
+    // 2. Vibración rítmica extendida en teléfonos móviles
     if ('vibrate' in navigator) {
       const vibPattern = [];
       for (let s = 0; s < durSec; s++) vibPattern.push(500, 300);
       navigator.vibrate(vibPattern);
     }
 
+    // 3. Notificación nativa del sistema vía Service Worker (despierta pantalla de bloqueo)
     triggerSystemNotification(medEncontrado.nombre, currentHM, dosisEncontrada);
+
+    // 4. Toast visible dentro de la app
     showToast(`⏰ ¡HORA DE TOMAR MEDICAMENTO! ${medEncontrado.nombre} (${currentHM}). Alarma activa por ${durSec}s.`, 'warning', durSec * 1000);
   }
 }
@@ -263,6 +270,7 @@ function playDoseAlarmTone(durationSeconds = 5) {
     for (let i = 0; i < durationSeconds; i++) {
       const startTime = t + i;
 
+      // Pulso 1 (800 Hz)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sawtooth';
@@ -274,6 +282,7 @@ function playDoseAlarmTone(durationSeconds = 5) {
       osc1.start(startTime);
       osc1.stop(startTime + 0.22);
 
+      // Pulso 2 (1050 Hz)
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sawtooth';
@@ -292,16 +301,31 @@ function playDoseAlarmTone(durationSeconds = 5) {
 
 function triggerSystemNotification(nombreMed, horaStr, dosis) {
   if (!('Notification' in window)) return;
-  if (Notification.permission === 'granted') {
-    try {
-      new Notification('💊 EL PASTILLERO: ¡Hora de tu medicamento!', {
-        body: `Es hora de tomar ${nombreMed} (${horaStr}). ${dosis && dosis.notas ? 'Nota: ' + dosis.notas : ''}`,
-        icon: 'icon-192.png',
-        badge: 'icon-192.png',
-        tag: 'pastillero-dosis-alerta',
-        renotify: true
-      });
-    } catch(e) {}
+  if (Notification.permission !== 'granted') return;
+
+  const notifOptions = {
+    body: `Es hora de tomar ${nombreMed} (${horaStr}). ${dosis && dosis.notas ? 'Nota: ' + dosis.notas : ''}`,
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    tag: 'pastillero-alarma-dosis',
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [500, 250, 500, 250, 500, 250, 500],
+    data: { url: './index.html' }
+  };
+
+  // Método 1: Por Service Worker (Garantiza sonido y despertar pantalla de bloqueo en móviles)
+  if (swRegistration && 'showNotification' in swRegistration) {
+    swRegistration.showNotification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
+  } else if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
+    }).catch(() => {
+      new Notification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
+    });
+  } else {
+    // Método 2: Respaldo para navegadores antiguos
+    new Notification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
   }
 }
 
@@ -1765,7 +1789,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '4.0',
+    version: '4.1',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1868,9 +1892,12 @@ let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=4.0').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=4.1').then(reg => {
+      swRegistration = reg;
       reg.update();
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn('Error registrando Service Worker:', err);
+    });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       window.location.reload();
@@ -2231,7 +2258,7 @@ function initEventListeners() {
     saveSettings();
   });
 
-  // Toggle de Alarma Sonora de Horarios + Permiso de Notificaciones
+  // Toggle de Alarma Sonora de Horarios + Permiso de Notificaciones Nativas
   document.getElementById('btn-sound-alarm').addEventListener('click', async () => {
     APP.settings.soundAlarm = !APP.settings.soundAlarm;
     applyThemeAndMode();

@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=4.0" />
-  <link rel="stylesheet" href="layout.css?v=4.0" />
+  <link rel="stylesheet" href="styles.css?v=4.1" />
+  <link rel="stylesheet" href="layout.css?v=4.1" />
   <style>
     /* ─── BARRA DE ALERTAS COMPACTA Y COLAPSABLE ─── */
     .alerts-container {
@@ -202,6 +202,36 @@
     .toma-completada {
       text-decoration: line-through;
       opacity: 0.6;
+    }
+
+    /* ─── AJUSTE RESPONSIVO CRÍTICO PARA MÓVILES (VENTANAS Y MENSAJES CENTRADOS) ─── */
+    @media (max-width: 600px) {
+      .toast-container {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 1.5rem) !important;
+        max-width: 420px !important;
+        bottom: 1rem !important;
+        align-items: center !important;
+      }
+      .toast {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin: 0 auto !important;
+      }
+      .modal-card {
+        width: calc(100vw - 1.5rem) !important;
+        max-width: 100% !important;
+        padding: 1.25rem 1rem !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+      }
+      .modal-overlay {
+        padding: 0.75rem !important;
+        box-sizing: border-box !important;
+      }
     }
   </style>
 </head>
@@ -986,6 +1016,7 @@
 
   <!-- Scripts externos (SheetJS para Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=4.1"></script>
 </body>
 </html>
+

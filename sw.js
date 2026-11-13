@@ -1,15 +1,15 @@
 // ============================================================
-// EL PASTILLERO Ob — Service Worker (sw.js v3.8)
-// Estrategia Network-First: Actualizaciones inmediatas
+// EL PASTILLERO Ob — Service Worker (sw.js v4.1)
+// Estrategia Network-First + Notificaciones Nativas en Pantalla de Bloqueo
 // ============================================================
 
-const CACHE_NAME = 'pastillero-v3.8';
+const CACHE_NAME = 'pastillero-v4.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './styles.css?v=3.8',
-  './layout.css?v=3.8',
-  './app.js?v=3.8',
+  './styles.css?v=4.1',
+  './layout.css?v=4.1',
+  './app.js?v=4.1',
   './manifest.json'
 ];
 
@@ -65,5 +65,22 @@ self.addEventListener('fetch', (event) => {
           }
         });
       })
+  );
+});
+
+// Al tocar la notificación nativa en la pantalla bloqueada, trae la PWA al frente
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.registration.scope) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('./index.html');
+      }
+    })
   );
 });
