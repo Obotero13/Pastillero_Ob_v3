@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=4.1" />
-  <link rel="stylesheet" href="layout.css?v=4.1" />
+  <link rel="stylesheet" href="styles.css?v=4.2" />
+  <link rel="stylesheet" href="layout.css?v=4.2" />
   <style>
     /* ─── BARRA DE ALERTAS COMPACTA Y COLAPSABLE ─── */
     .alerts-container {
@@ -72,7 +72,7 @@
       border-left: 4px solid #757575;
     }
 
-    /* ─── PRESERVACIÓN DE RENGLONES INDEPENDIENTES ─── */
+    /* ─── PRESERVACIÓN DE RENGLONES INDEPENDIENTES Y LISTAS ─── */
     .med-details-multiline {
       white-space: pre-wrap !important;
       word-break: break-word;
@@ -84,6 +84,15 @@
       border-radius: 6px;
       border-left: 3px solid var(--accent);
       font-size: 0.82rem;
+    }
+    .notas-bullet-list {
+      margin: 0.25rem 0 0 1.25rem;
+      padding: 0;
+      list-style-type: disc;
+      white-space: normal;
+    }
+    .notas-bullet-list li {
+      margin-bottom: 0.2rem;
     }
 
     /* ─── SECCIÓN DE RESULTADOS EN CITAS ─── */
@@ -251,7 +260,7 @@
         <div class="logo-icon">💊</div>
         <div class="logo-text">
           <span class="logo-title">EL PASTILLERO Ob</span>
-          <span class="logo-subtitle">Gestión de Medicamentos</span>
+          <span class="logo-subtitle">Gestión de Medicamentos v4.2</span>
         </div>
       </div>
     </div>
@@ -299,6 +308,9 @@
     </button>
     <button class="tab-btn" data-tab="medicamentos" id="tab-medicamentos" aria-selected="false">
       <span class="tab-icon">💊</span><span class="tab-label">Medicamentos</span>
+    </button>
+    <button class="tab-btn" data-tab="otros-meds" id="tab-otros-meds" aria-selected="false">
+      <span class="tab-icon">🧴</span><span class="tab-label">Otros Medicamentos</span>
     </button>
     <button class="tab-btn" data-tab="puntos" id="tab-puntos" aria-selected="false">
       <span class="tab-icon">🏥</span><span class="tab-label">Puntos Entrega</span>
@@ -442,6 +454,12 @@
             <label class="form-label" for="med-stock-minimo">Stock mínimo de alerta</label>
             <input type="number" class="form-input" id="med-stock-minimo" placeholder="Alerta al llegar a (ej: 5)" min="0" value="5" />
           </div>
+          <div class="form-group full-width">
+            <label class="check-label" for="med-desactivar-alerta">
+              <input type="checkbox" id="med-desactivar-alerta" />
+              🔕 Desactivar alarma por bajo stock (útil cuando se termine y no tenga próxima fecha de entrega)
+            </label>
+          </div>
           <div class="form-group">
             <label class="form-label" for="med-laboratorio">Laboratorio fabricante</label>
             <input type="text" class="form-input" id="med-laboratorio" placeholder="Ej: Genfar (opcional)" />
@@ -475,6 +493,76 @@
       <div id="empty-medicamentos" class="empty-state">
         <div class="empty-icon">💊</div>
         <p>Selecciona un paciente para ver sus medicamentos.<br>O haz clic en <strong>"+ Nuevo Medicamento"</strong>.</p>
+      </div>
+    </section>
+
+    <!-- TAB: OTROS MEDICAMENTOS (SIN ALARMAS) -->
+    <section class="tab-panel" id="panel-otros-meds" role="tabpanel" aria-labelledby="tab-otros-meds">
+      <div class="panel-header">
+        <h1 class="panel-title">🧴 Otros Medicamentos</h1>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btn-nuevo-otro-med">
+            <span>+</span> Nuevo Registro
+          </button>
+        </div>
+      </div>
+
+      <div class="card form-card" id="form-otro-med-card" style="display:none;">
+        <h2 class="card-title" id="form-otro-med-title">Nuevo Medicamento Adicional (Sin Alarmas)</h2>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label" for="otro-med-nombre">Nombre *</label>
+            <input type="text" class="form-input" id="otro-med-nombre" placeholder="Ej: Acetaminofén / Crema Hidratante / Vitaminas" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="otro-med-concentracion">Concentración</label>
+            <input type="text" class="form-input" id="otro-med-concentracion" placeholder="Ej: 500" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="otro-med-unidad">Unidad</label>
+            <select class="form-select" id="otro-med-unidad">
+              <option value="">— Seleccionar —</option>
+              <option value="mg">mg (miligramos)</option>
+              <option value="g">g (gramos)</option>
+              <option value="mcg">mcg (microgramos)</option>
+              <option value="UI">UI (Unidades Internacionales)</option>
+              <option value="ml">ml (mililitros)</option>
+              <option value="gotas">Gotas</option>
+              <option value="tabletas">Tabletas</option>
+              <option value="cápsulas">Cápsulas</option>
+              <option value="sobres">Sobres</option>
+              <option value="unidades">Unidades</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="otro-med-cantidad">Cantidad</label>
+            <input type="number" class="form-input" id="otro-med-cantidad" placeholder="Ej: 20" min="0" step="0.25" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="otro-med-fecha-recepcion">Fecha de Recepción</label>
+            <input type="date" class="form-input" id="otro-med-fecha-recepcion" />
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="otro-med-punto-entrega">Punto de Entrega</label>
+            <select class="form-select" id="otro-med-punto-entrega">
+              <option value="">— Sin punto de entrega —</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="otro-med-notas">Notas del medicamento </label>
+            <textarea class="form-input form-textarea" id="otro-med-notas" style="min-height:110px;" placeholder="Uso ocasional únicamente para dolor de cabeza&#10;Guardar en lugar fresco y seco&#10;Comprado de forma particular"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="btn-cancelar-otro-med">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-otro-med">💾 Guardar</button>
+        </div>
+      </div>
+
+      <div id="lista-otros-meds" class="meds-list"></div>
+      <div id="empty-otros-meds" class="empty-state">
+        <div class="empty-icon">🧴</div>
+        <p>No hay registros en Otros Medicamentos.<br>Estos medicamentos no generan alarmas.<br>Haz clic en <strong>"+ Nuevo Registro"</strong>.</p>
       </div>
     </section>
 
@@ -932,7 +1020,7 @@
         <div class="card datos-card">
           <div class="datos-icon">📱</div>
           <h2 class="card-title">Instalar en Móvil</h2>
-          <p class="datos-desc">Esta aplicación funciona sin internet (PWA). Instálala desde tu navegador móvil para un acceso rápido.</p>
+          <p class="datos-desc">Esta aplicación funciona sin internet (PWA v4.2). Instálala desde tu navegador móvil para un acceso rápido.</p>
           <div class="pwa-steps">
             <div class="pwa-step"><span class="step-num">1</span> Abre la app en Chrome o Safari</div>
             <div class="pwa-step"><span class="step-num">2</span> Toca el menú del navegador</div>
@@ -1016,7 +1104,6 @@
 
   <!-- Scripts externos (SheetJS para Excel) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=4.1"></script>
+  <script src="app.js?v=4.2"></script>
 </body>
 </html>
-

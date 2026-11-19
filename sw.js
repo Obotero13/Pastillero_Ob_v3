@@ -1,15 +1,15 @@
 // ============================================================
-// EL PASTILLERO Ob — Service Worker (sw.js v4.1)
+// EL PASTILLERO Ob — Service Worker (sw.js v4.2)
 // Estrategia Network-First + Notificaciones Nativas en Pantalla de Bloqueo
 // ============================================================
 
-const CACHE_NAME = 'pastillero-v4.1';
+const CACHE_NAME = 'pastillero-v4.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './styles.css?v=4.1',
-  './layout.css?v=4.1',
-  './app.js?v=4.1',
+  './styles.css?v=4.2',
+  './layout.css?v=4.2',
+  './app.js?v=4.2',
   './manifest.json'
 ];
 

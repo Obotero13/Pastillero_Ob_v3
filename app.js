@@ -1,5 +1,5 @@
 /* ============================================================
-   EL PASTILLERO Ob — JavaScript Principal (app.js v4.1)
+   EL PASTILLERO Ob — JavaScript Principal (app.js v4.2)
    ============================================================ */
 
 'use strict';
@@ -7,14 +7,15 @@
 // ─── ESTADO GLOBAL ──────────────────────────────────────────
 const APP = {
   data: {
-    pacientes: [],       // [{id, nombre, edad, telefono, eps, tipoSangre, alergias, emergenciaContacto, emergenciaTelefono, notas}]
-    medicamentos: [],    // [{id, pacienteId, nombre, concentracion, unidad, cantidad, stockMinimo, laboratorio, fechaRecepcion, proximaRecepcion, puntoEntregaId, notas}]
-    dosis: [],           // [{id, pacienteId, medicamentoId, cantidadDia, frecuencia, intervaloDias, jornadas:[{jornada, hora}], notas}]
-    puntosEntrega: [],   // [{id, nombre, direccion, telefonos, correo, web, observaciones}]
-    sitios: [],          // [{id, nombre, direccion, web, correo, telefono, whatsapp, servicio, fecha, horario, info}]
-    citas: [],           // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones, resLab, resWeb, resCorreo, resWhatsapp, resTelefono, resPasos}]
-    fechasEspeciales: [],// [{fecha:'YYYY-MM-DD', comentario}]
-    registroTomas: {},   // {'YYYY-MM-DD': { 'dosisId_jornada': true }}
+    pacientes: [],          // [{id, nombre, edad, telefono, eps, tipoSangre, alergias, emergenciaContacto, emergenciaTelefono, notas}]
+    medicamentos: [],       // [{id, pacienteId, nombre, concentracion, unidad, cantidad, stockMinimo, desactivarAlertaStock, laboratorio, fechaRecepcion, proximaRecepcion, puntoEntregaId, notas}]
+    otrosMedicamentos: [],  // [{id, nombre, concentracion, unidad, cantidad, fechaRecepcion, puntoEntregaId, notas}]
+    dosis: [],              // [{id, pacienteId, medicamentoId, cantidadDia, frecuencia, intervaloDias, jornadas:[{jornada, hora}], notas}]
+    puntosEntrega: [],      // [{id, nombre, direccion, telefonos, correo, web, observaciones}]
+    sitios: [],             // [{id, nombre, direccion, web, correo, telefono, whatsapp, servicio, fecha, horario, info}]
+    citas: [],              // [{id, pacienteId, lugar, fecha, hora, servicio, profesional, direccion, telefonos, correo, web, observaciones, resLab, resWeb, resCorreo, resWhatsapp, resTelefono, resPasos}]
+    fechasEspeciales: [],   // [{fecha:'YYYY-MM-DD', comentario}]
+    registroTomas: {},      // {'YYYY-MM-DD': { 'dosisId_jornada': true }}
     lastInventoryDate: null // 'YYYY-MM-DD'
   },
   ui: {
@@ -22,6 +23,7 @@ const APP = {
     activeAlertCategory: null,
     editPacienteId: null,
     editMedId: null,
+    editOtroMedId: null,
     editDosisId: null,
     editPuntoId: null,
     editSitioId: null,
@@ -91,6 +93,13 @@ const waLink = (num) => {
 };
 const detail = (icon, val, html) => val ? `<span class="med-detail-item">${icon} ${html || esc(val)}</span>` : '';
 const multilineDetail = (label, text) => text ? `<div class="med-details-multiline"><strong>${label}:</strong><br>${esc(text)}</div>` : '';
+const listDetail = (label, text) => {
+  if (!text) return '';
+  const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return '';
+  const items = lines.map(l => `<li>${esc(l)}</li>`).join('');
+  return `<div class="med-details-multiline"><strong>${label}:</strong><ul class="notas-bullet-list">${items}</ul></div>`;
+};
 
 // Isotipos SVG vectoriales compactos
 const WA_SVG = `<svg viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.54 1.769.814 2.791.814 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.768-5.77-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 4.418-3.582 8-8 8-1.42 0-2.753-.372-3.916-1.023l-4.115 1.078 1.096-4.011c-.722-1.206-1.065-2.58-1.065-4.044 0-4.418 3.582-8 8-8zm3.285 11.233c-.14-.07-.828-.408-.956-.455-.128-.047-.222-.07-.315.07-.094.14-.363.455-.445.549-.082.093-.164.105-.304.035-.14-.07-.591-.218-1.126-.695-.416-.371-.697-.83-.778-.97-.082-.14-.009-.215.061-.285.063-.062.14-.163.21-.245.07-.082.094-.14.14-.233.047-.094.023-.175-.012-.245-.035-.07-.315-.759-.432-1.039-.114-.273-.23-.236-.316-.24l-.27-.005c-.093 0-.245.035-.373.175-.128.14-.49.479-.49 1.168 0 .689.501 1.354.571 1.448.07.093.987 1.507 2.391 2.115.334.145.595.231.798.296.335.106.64.091.882.055.27-.04.828-.338.945-.666.117-.327.117-.607.082-.666-.035-.059-.128-.094-.268-.164z"/></svg>`;
@@ -139,6 +148,7 @@ function loadData() {
     if (raw) {
       const parsed = JSON.parse(raw);
       APP.data = { ...APP.data, ...parsed };
+      if (!APP.data.otrosMedicamentos) APP.data.otrosMedicamentos = [];
       if (!APP.data.sitios) APP.data.sitios = [];
       if (!APP.data.registroTomas) APP.data.registroTomas = {};
     }
@@ -314,7 +324,6 @@ function triggerSystemNotification(nombreMed, horaStr, dosis) {
     data: { url: './index.html' }
   };
 
-  // Método 1: Por Service Worker (Garantiza sonido y despertar pantalla de bloqueo en móviles)
   if (swRegistration && 'showNotification' in swRegistration) {
     swRegistration.showNotification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
   } else if ('serviceWorker' in navigator) {
@@ -324,7 +333,6 @@ function triggerSystemNotification(nombreMed, horaStr, dosis) {
       new Notification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
     });
   } else {
-    // Método 2: Respaldo para navegadores antiguos
     new Notification('💊 ¡HORA DE TOMAR MEDICAMENTO!', notifOptions);
   }
 }
@@ -423,7 +431,9 @@ function renderAlertas() {
     }
   });
 
+  // Solo medicamentos regulares con alarma de bajo stock activa ("Otros Medicamentos" no genera alarmas)
   (APP.data.medicamentos || []).forEach(med => {
+    if (med.desactivarAlertaStock) return;
     const stockMin = med.stockMinimo !== undefined ? Number(med.stockMinimo) : 5;
     if (med.cantidad <= stockMin) {
       const pac = APP.data.pacientes.find(p => p.id === med.pacienteId);
@@ -528,6 +538,7 @@ function switchTab(tabId) {
 
   if (tabId === 'pacientes') renderPacientes();
   if (tabId === 'medicamentos') renderMedicamentos();
+  if (tabId === 'otros-meds') renderOtrosMeds();
   if (tabId === 'sitios') renderSitios();
   if (tabId === 'dosis') renderDosis();
   if (tabId === 'calendario') renderCalendar();
@@ -727,7 +738,8 @@ function exportarResumenPDF(pacienteId) {
   const pac = APP.data.pacientes.find(p => p.id === pacienteId);
   if (!pac) { showToast('Paciente no encontrado.', 'error'); return; }
 
-  const meds = APP.data.medicamentos.filter(m => m.pacienteId === pacienteId);
+  const meds = [...APP.data.medicamentos.filter(m => m.pacienteId === pacienteId)]
+    .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
   const dosis = APP.data.dosis.filter(d => d.pacienteId === pacienteId);
   const citas = APP.data.citas.filter(c => c.pacienteId === pacienteId);
 
@@ -853,7 +865,7 @@ function exportarResumenPDF(pacienteId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MÓDULO: MEDICAMENTOS Y REABASTECIMIENTO RÁPIDO
+// MÓDULO: MEDICAMENTOS (ORDEN ALFABÉTICO + DESACTIVAR ALARMA)
 // ─────────────────────────────────────────────────────────────
 
 function getMedsForPaciente(pacId) {
@@ -867,7 +879,10 @@ function renderMedicamentos() {
   lista.innerHTML = '';
 
   const pacId = APP.ui.selPacienteMeds;
-  const meds = getMedsForPaciente(pacId);
+  // Orden alfabético garantizado por nombre
+  const meds = [...getMedsForPaciente(pacId)].sort((a, b) =>
+    (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+  );
 
   if (!pacId) {
     lista.style.display = 'none';
@@ -890,7 +905,8 @@ function renderMedicamentos() {
     const dias = daysDiff(med.proximaRecepcion);
     const near = dias >= 0 && dias <= 7;
     const stockMin = med.stockMinimo !== undefined ? Number(med.stockMinimo) : 5;
-    const bajoStock = med.cantidad <= stockMin;
+    const alertaStockDesactivada = !!med.desactivarAlertaStock;
+    const bajoStock = !alertaStockDesactivada && med.cantidad <= stockMin;
 
     const item = document.createElement('div');
     item.className = 'med-item' + (near || bajoStock ? ' near-expiry' : '');
@@ -902,6 +918,7 @@ function renderMedicamentos() {
           <span class="med-badge">${med.concentracion} ${med.unidad}</span>
           ${near ? '<span style="color:#00e676;font-size:0.8rem;font-weight:700;">⏩ Recepción próxima</span>' : ''}
           ${bajoStock ? `<span style="color:#ff5252;font-size:0.8rem;font-weight:700;">⚠️ Stock bajo (${med.cantidad})</span>` : ''}
+          ${alertaStockDesactivada ? `<span style="color:var(--text-muted);font-size:0.78rem;font-weight:600;">🔕 Alarma stock desactivada</span>` : ''}
         </div>
         <div class="med-details">
           <span class="med-detail-item">📦 Stock actual: <strong>${med.cantidad}</strong> (mín: ${stockMin})</span>
@@ -913,6 +930,7 @@ function renderMedicamentos() {
         ${multilineDetail('Notas del medicamento', med.notas)}
       </div>
       <div class="med-actions">
+        <button class="btn btn-secondary btn-icon" data-action="toggle-alerta-med" data-id="${med.id}" title="${alertaStockDesactivada ? 'Activar alarma por bajo stock' : 'Desactivar alarma por bajo stock'}">${alertaStockDesactivada ? '🔕' : '🔔'}</button>
         <button class="btn btn-success btn-icon" data-action="reabastecer-med" data-id="${med.id}" title="Reabastecer stock (Llegó entrega)">📦 +</button>
         <button class="btn btn-secondary btn-icon" data-action="edit-med" data-id="${med.id}" title="Editar medicamento">✏️</button>
         <button class="btn btn-danger btn-icon" data-action="del-med" data-id="${med.id}" title="Eliminar medicamento">🗑️</button>
@@ -920,6 +938,23 @@ function renderMedicamentos() {
     `;
     lista.appendChild(item);
   });
+}
+
+function toggleAlertaStockMed(id) {
+  const med = APP.data.medicamentos.find(m => m.id === id);
+  if (!med) return;
+  med.desactivarAlertaStock = !med.desactivarAlertaStock;
+  saveData();
+  renderMedicamentos();
+  renderAlertas();
+  if (APP.ui.tabActual === 'consulta') renderConsulta();
+  showToast(
+    med.desactivarAlertaStock
+      ? `🔕 Alarma por bajo stock desactivada para ${med.nombre}.`
+      : `🔔 Alarma por bajo stock activada para ${med.nombre}.`,
+    'info',
+    2500
+  );
 }
 
 function openReabastecerModal(medId) {
@@ -970,10 +1005,11 @@ function openFormMed(medId = null) {
     document.getElementById('med-unidad').value = med.unidad;
     document.getElementById('med-cantidad').value = med.cantidad;
     document.getElementById('med-stock-minimo').value = med.stockMinimo !== undefined ? med.stockMinimo : 5;
+    document.getElementById('med-desactivar-alerta').checked = !!med.desactivarAlertaStock;
     document.getElementById('med-laboratorio').value = med.laboratorio || '';
     document.getElementById('med-fecha-recepcion').value = med.fechaRecepcion || '';
     document.getElementById('med-proxima-recepcion').value = med.proximaRecepcion || '';
-    updatePuntoEntregaSelect(med.puntoEntregaId || '');
+    populatePuntoSelect('med-punto-entrega', med.puntoEntregaId || '');
     document.getElementById('med-notas').value = med.notas || '';
   } else {
     title.textContent = 'Nuevo Medicamento';
@@ -982,10 +1018,11 @@ function openFormMed(medId = null) {
     document.getElementById('med-unidad').value = 'mg';
     document.getElementById('med-cantidad').value = '';
     document.getElementById('med-stock-minimo').value = '5';
+    document.getElementById('med-desactivar-alerta').checked = false;
     document.getElementById('med-laboratorio').value = '';
     document.getElementById('med-fecha-recepcion').value = todayStr();
     document.getElementById('med-proxima-recepcion').value = '';
-    updatePuntoEntregaSelect('');
+    populatePuntoSelect('med-punto-entrega', '');
     document.getElementById('med-notas').value = '';
   }
 
@@ -1004,6 +1041,7 @@ function guardarMed() {
   const conc = parseFloat(document.getElementById('med-concentracion').value);
   const cant = parseFloat(document.getElementById('med-cantidad').value);
   const stockMin = parseFloat(document.getElementById('med-stock-minimo').value) || 0;
+  const desactivarAlertaStock = document.getElementById('med-desactivar-alerta').checked;
 
   if (!nombre) { showToast('El nombre del medicamento es obligatorio.', 'error'); return; }
   if (isNaN(conc) || conc <= 0) { showToast('La concentración debe ser un número mayor a 0.', 'error'); return; }
@@ -1016,6 +1054,7 @@ function guardarMed() {
     unidad: document.getElementById('med-unidad').value,
     cantidad: cant,
     stockMinimo: stockMin,
+    desactivarAlertaStock,
     laboratorio: document.getElementById('med-laboratorio').value.trim(),
     fechaRecepcion: document.getElementById('med-fecha-recepcion').value,
     proximaRecepcion: document.getElementById('med-proxima-recepcion').value,
@@ -1055,6 +1094,140 @@ async function eliminarMed(id) {
   renderAlertas();
   renderPacientes();
   showToast('Medicamento eliminado.', 'warning');
+}
+
+// ─────────────────────────────────────────────────────────────
+// MÓDULO: OTROS MEDICAMENTOS (SIN ALARMAS, NOTAS EN LISTA)
+// ─────────────────────────────────────────────────────────────
+
+function renderOtrosMeds() {
+  const lista = document.getElementById('lista-otros-meds');
+  const empty = document.getElementById('empty-otros-meds');
+  lista.innerHTML = '';
+
+  const items = [...(APP.data.otrosMedicamentos || [])].sort((a, b) =>
+    (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+  );
+
+  if (items.length === 0) {
+    lista.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  lista.style.display = 'flex';
+  empty.style.display = 'none';
+
+  items.forEach(om => {
+    const concTexto = [om.concentracion, om.unidad].filter(Boolean).join(' ');
+    const item = document.createElement('div');
+    item.className = 'med-item';
+    item.dataset.id = om.id;
+    item.innerHTML = `
+      <div class="med-info">
+        <div class="med-name">
+          🧴 ${esc(om.nombre)}
+          ${concTexto ? `<span class="med-badge">${esc(concTexto)}</span>` : ''}
+        </div>
+        <div class="med-details">
+          ${om.cantidad !== '' && om.cantidad !== undefined && om.cantidad !== null ? `<span class="med-detail-item">📦 Cantidad: <strong>${esc(om.cantidad)}</strong></span>` : ''}
+          ${om.fechaRecepcion ? `<span class="med-detail-item">📆 Recepción: <strong>${fmtDate(om.fechaRecepcion)}</strong></span>` : ''}
+          ${puntoNombre(om.puntoEntregaId) ? `<span class="med-detail-item">🏥 ${esc(puntoNombre(om.puntoEntregaId))}</span>` : ''}
+        </div>
+        ${listDetail('Notas del medicamento', om.notas)}
+      </div>
+      <div class="med-actions">
+        <button class="btn btn-secondary btn-icon" data-action="edit-otro-med" data-id="${om.id}" title="Editar">✏️</button>
+        <button class="btn btn-danger btn-icon" data-action="del-otro-med" data-id="${om.id}" title="Eliminar">🗑️</button>
+      </div>
+    `;
+    lista.appendChild(item);
+  });
+}
+
+function openFormOtroMed(id = null) {
+  const card = document.getElementById('form-otro-med-card');
+  const title = document.getElementById('form-otro-med-title');
+  APP.ui.editOtroMedId = id;
+
+  if (id) {
+    const om = (APP.data.otrosMedicamentos || []).find(x => x.id === id);
+    if (!om) return;
+    title.textContent = 'Editar Otro Medicamento';
+    document.getElementById('otro-med-nombre').value = om.nombre || '';
+    document.getElementById('otro-med-concentracion').value = om.concentracion || '';
+    document.getElementById('otro-med-unidad').value = om.unidad || '';
+    document.getElementById('otro-med-cantidad').value = om.cantidad !== undefined && om.cantidad !== null ? om.cantidad : '';
+    document.getElementById('otro-med-fecha-recepcion').value = om.fechaRecepcion || '';
+    populatePuntoSelect('otro-med-punto-entrega', om.puntoEntregaId || '');
+    document.getElementById('otro-med-notas').value = om.notas || '';
+  } else {
+    title.textContent = 'Nuevo Medicamento Adicional (Sin Alarmas)';
+    document.getElementById('otro-med-nombre').value = '';
+    document.getElementById('otro-med-concentracion').value = '';
+    document.getElementById('otro-med-unidad').value = '';
+    document.getElementById('otro-med-cantidad').value = '';
+    document.getElementById('otro-med-fecha-recepcion').value = todayStr();
+    populatePuntoSelect('otro-med-punto-entrega', '');
+    document.getElementById('otro-med-notas').value = '';
+  }
+
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('otro-med-nombre').focus();
+}
+
+function closeFormOtroMed() {
+  document.getElementById('form-otro-med-card').style.display = 'none';
+  APP.ui.editOtroMedId = null;
+}
+
+function guardarOtroMed() {
+  const nombre = document.getElementById('otro-med-nombre').value.trim();
+  if (!nombre) {
+    showToast('El nombre del medicamento es obligatorio.', 'error');
+    return;
+  }
+
+  const cantRaw = document.getElementById('otro-med-cantidad').value;
+  const datos = {
+    nombre,
+    concentracion: document.getElementById('otro-med-concentracion').value.trim(),
+    unidad: document.getElementById('otro-med-unidad').value,
+    cantidad: cantRaw === '' ? '' : parseFloat(cantRaw),
+    fechaRecepcion: document.getElementById('otro-med-fecha-recepcion').value,
+    puntoEntregaId: document.getElementById('otro-med-punto-entrega').value,
+    notas: document.getElementById('otro-med-notas').value.trim()
+  };
+
+  if (!APP.data.otrosMedicamentos) APP.data.otrosMedicamentos = [];
+
+  if (APP.ui.editOtroMedId) {
+    const idx = APP.data.otrosMedicamentos.findIndex(x => x.id === APP.ui.editOtroMedId);
+    if (idx > -1) {
+      APP.data.otrosMedicamentos[idx] = { ...APP.data.otrosMedicamentos[idx], ...datos };
+      showToast('Registro actualizado correctamente.', 'success');
+    }
+  } else {
+    APP.data.otrosMedicamentos.push({ id: genId(), ...datos });
+    showToast('Registro guardado en Otros Medicamentos.', 'success');
+  }
+
+  saveData();
+  closeFormOtroMed();
+  renderOtrosMeds();
+}
+
+async function eliminarOtroMed(id) {
+  const om = (APP.data.otrosMedicamentos || []).find(x => x.id === id);
+  if (!om) return;
+  const ok = await confirmModal('Eliminar Registro', `¿Eliminar "${om.nombre}" de Otros Medicamentos?`);
+  if (!ok) return;
+
+  APP.data.otrosMedicamentos = (APP.data.otrosMedicamentos || []).filter(x => x.id !== id);
+  saveData();
+  renderOtrosMeds();
+  showToast('Registro eliminado.', 'info');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1169,7 +1342,10 @@ function updateDosisMedSelect() {
   const sel = document.getElementById('dosis-medicamento');
   if (!sel) return;
   const pacId = APP.ui.selPacienteDosis;
-  const meds = pacId ? APP.data.medicamentos.filter(m => m.pacienteId === pacId) : [];
+  const meds = pacId
+    ? [...APP.data.medicamentos.filter(m => m.pacienteId === pacId)]
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }))
+    : [];
   sel.innerHTML = '<option value="">— Seleccionar medicamento —</option>';
   meds.forEach(m => {
     const opt = document.createElement('option');
@@ -1675,6 +1851,7 @@ function updateConsultaFiltros() {
   const currentMed = APP.ui.selMedConsulta;
   let meds = APP.data.medicamentos;
   if (currentPac) meds = meds.filter(m => m.pacienteId === currentPac);
+  meds = [...meds].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
   selMed.innerHTML = '<option value="">— Todos los medicamentos —</option>';
   meds.forEach(m => {
     const opt = document.createElement('option');
@@ -1720,6 +1897,8 @@ function getConsultaRows() {
   if (fechaRec) meds = meds.filter(m => m.proximaRecepcion === fechaRec);
   if (puntoId) meds = meds.filter(m => m.puntoEntregaId === puntoId);
 
+  meds = [...meds].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+
   return meds.map(med => {
     const pac = APP.data.pacientes.find(p => p.id === med.pacienteId);
     const dosis = APP.data.dosis.find(d => d.medicamentoId === med.id);
@@ -1731,6 +1910,7 @@ function getConsultaRows() {
       concentracion: `${med.concentracion} ${med.unidad}`,
       cantidad: med.cantidad,
       stockMinimo: stockMin,
+      alertaStockDesactivada: !!med.desactivarAlertaStock,
       laboratorio: med.laboratorio || '—',
       puntoEntrega: puntoNombre(med.puntoEntregaId) || '—',
       fechaRecepcion: fmtDate(med.fechaRecepcion),
@@ -1763,14 +1943,15 @@ function renderConsulta() {
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
+    const bajoStock = !row.alertaStockDesactivada && row.cantidad <= row.stockMinimo;
     if (row.diasRestantes >= 0 && row.diasRestantes <= 7) tr.classList.add('near-expiry-row');
-    if (row.cantidad <= row.stockMinimo) tr.classList.add('low-stock-row');
+    if (bajoStock) tr.classList.add('low-stock-row');
 
     tr.innerHTML = `
       <td>${esc(row.paciente)}</td>
       <td><strong>${esc(row.nombre)}</strong></td>
       <td><span class="med-badge">${esc(row.concentracion)}</span></td>
-      <td><strong>${row.cantidad}</strong> ${row.cantidad <= row.stockMinimo ? '<small style="color:#ff5252">⚠️</small>' : ''}</td>
+      <td><strong>${row.cantidad}</strong> ${bajoStock ? '<small style="color:#ff5252">⚠️</small>' : (row.alertaStockDesactivada ? '<small title="Alarma de bajo stock desactivada">🔕</small>' : '')}</td>
       <td>${esc(row.laboratorio)}</td>
       <td>${esc(row.puntoEntrega)}</td>
       <td>${row.fechaRecepcion}</td>
@@ -1789,7 +1970,7 @@ function renderConsulta() {
 
 function exportarJSON() {
   const payload = {
-    version: '4.1',
+    version: '4.2',
     exportDate: new Date().toISOString(),
     appName: 'El Pastillero Ob',
     data: APP.data
@@ -1818,6 +1999,7 @@ function importarJSON(file, mode) {
         APP.data = {
           pacientes: incoming.pacientes || [],
           medicamentos: incoming.medicamentos || [],
+          otrosMedicamentos: incoming.otrosMedicamentos || [],
           dosis: incoming.dosis || [],
           fechasEspeciales: incoming.fechasEspeciales || [],
           puntosEntrega: incoming.puntosEntrega || [],
@@ -1835,6 +2017,7 @@ function importarJSON(file, mode) {
         };
         APP.data.pacientes = mergeArr(APP.data.pacientes, incoming.pacientes);
         APP.data.medicamentos = mergeArr(APP.data.medicamentos, incoming.medicamentos);
+        APP.data.otrosMedicamentos = mergeArr(APP.data.otrosMedicamentos, incoming.otrosMedicamentos);
         APP.data.dosis = mergeArr(APP.data.dosis, incoming.dosis);
         APP.data.fechasEspeciales = mergeArr(APP.data.fechasEspeciales, incoming.fechasEspeciales);
         APP.data.puntosEntrega = mergeArr(APP.data.puntosEntrega, incoming.puntosEntrega);
@@ -1846,7 +2029,9 @@ function importarJSON(file, mode) {
 
       saveData();
       updatePacientesSelects();
+      updatePuntoEntregaSelect('');
       renderPacientes();
+      renderOtrosMeds();
       renderAlertas();
     } catch(err) {
       showToast('Error al leer el archivo JSON. Verifica que sea válido.', 'error');
@@ -1892,7 +2077,7 @@ let deferredInstallPrompt = null;
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=4.1').then(reg => {
+    navigator.serviceWorker.register('sw.js?v=4.2').then(reg => {
       swRegistration = reg;
       reg.update();
     }).catch((err) => {
@@ -1928,7 +2113,6 @@ function initPWA() {
 
 const PUNTO_CAMPOS = ['nombre','direccion','telefonos','correo','web','observaciones'];
 const CITA_CAMPOS = ['lugar','fecha','hora','servicio','profesional','direccion','telefonos','correo','web','observaciones'];
-const CITA_RES_CAMPOS = ['resLab','resWeb','resCorreo','resWhatsapp','resTelefono','resPasos'];
 
 function puntoNombre(id) {
   if (!id) return '';
@@ -1936,8 +2120,8 @@ function puntoNombre(id) {
   return p ? (p.nombre || 'Punto sin nombre') : '';
 }
 
-function updatePuntoEntregaSelect(selected) {
-  const sel = document.getElementById('med-punto-entrega');
+function populatePuntoSelect(selectId, selected) {
+  const sel = document.getElementById(selectId);
   if (!sel) return;
   sel.innerHTML = '<option value="">— Sin punto de entrega —</option>';
   (APP.data.puntosEntrega || []).forEach(p => {
@@ -1947,6 +2131,11 @@ function updatePuntoEntregaSelect(selected) {
     sel.appendChild(opt);
   });
   sel.value = selected || '';
+}
+
+function updatePuntoEntregaSelect(selected) {
+  populatePuntoSelect('med-punto-entrega', selected);
+  populatePuntoSelect('otro-med-punto-entrega', selected);
 }
 
 function renderPuntos() {
@@ -2010,6 +2199,7 @@ async function eliminarPunto(id) {
   if (!ok) return;
   APP.data.puntosEntrega = APP.data.puntosEntrega.filter(x => x.id !== id);
   APP.data.medicamentos.forEach(m => { if (m.puntoEntregaId === id) m.puntoEntregaId = ''; });
+  (APP.data.otrosMedicamentos || []).forEach(om => { if (om.puntoEntregaId === id) om.puntoEntregaId = ''; });
   saveData();
   renderPuntos();
   updatePuntoEntregaSelect('');
@@ -2327,6 +2517,7 @@ function initEventListeners() {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const { action, id } = btn.dataset;
+    if (action === 'toggle-alerta-med') toggleAlertaStockMed(id);
     if (action === 'reabastecer-med') openReabastecerModal(id);
     if (action === 'edit-med') openFormMed(id);
     if (action === 'del-med') eliminarMed(id);
@@ -2336,6 +2527,18 @@ function initEventListeners() {
     document.getElementById('modal-reabastecer').style.display = 'none';
   });
   document.getElementById('btn-guardar-reabastecer').addEventListener('click', guardarReabastecimiento);
+
+  // OTROS MEDICAMENTOS
+  document.getElementById('btn-nuevo-otro-med').addEventListener('click', () => openFormOtroMed());
+  document.getElementById('btn-cancelar-otro-med').addEventListener('click', closeFormOtroMed);
+  document.getElementById('btn-guardar-otro-med').addEventListener('click', guardarOtroMed);
+  document.getElementById('lista-otros-meds').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action, id } = btn.dataset;
+    if (action === 'edit-otro-med') openFormOtroMed(id);
+    if (action === 'del-otro-med') eliminarOtroMed(id);
+  });
 
   // OTROS SITIOS
   document.getElementById('btn-nuevo-sitio').addEventListener('click', () => openFormSitio());
@@ -2516,6 +2719,7 @@ function init() {
   updatePacientesSelects();
   updatePuntoEntregaSelect('');
   renderPacientes();
+  renderOtrosMeds();
   renderAlertas();
   initPWA();
 
